@@ -8,7 +8,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
     
-    <title>근무관리 시스템 v9.6 (실시간 연동)</title>
+    <title>근무관리 시스템 v9.7 (실시간 연동)</title>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
     <style>
         :root {
@@ -345,12 +345,12 @@
     <div id="sync-toast" class="sync-toast">구글 스프레드시트 동기화 중...</div>
 
     <script>
-        // 🔗 새로 발급받으신 주소로 완전히 적용해 두었습니다!
+        // 🔗 새로 발급받으신 주소
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbypyn3yJwfoFuHvyLe0m6l8L0o_JuTnF_bM0Ya-hemXviZhJaFk1lWyVJwme2ZoQND1mw/exec";
 
-        // 항상 오늘 날짜 기준으로 시작하도록 변경
-        const systemToday = new Date();
-        let currentDate = new Date(systemToday.getFullYear(), systemToday.getMonth(), 1); 
+        // 시스템 오늘 날짜 정확하게 지정 (2026년 7월)
+        const systemToday = new Date(2026, 6, 4); // 0이 1월이므로 6은 7월입니다.
+        let currentDate = new Date(2026, 6, 1); 
         
         let attendanceData = JSON.parse(localStorage.getItem('overtime_data_v9_4')) || {};
         let globalConfig = JSON.parse(localStorage.getItem('global_work_config_v9_4')) || { startTime: "04:10", endTime: "16:10" };
@@ -788,7 +788,7 @@
             document.getElementById('close-time-modal').addEventListener('click', () => timeModal.classList.remove('open'));
 
             currentMonthDisplay.addEventListener('click', () => {
-                currentDate = new Date(systemToday.getFullYear(), systemToday.getMonth(), 1);
+                currentDate = new Date(2026, 6, 1);
                 renderCalendar(); updateDashboard();
             });
 
