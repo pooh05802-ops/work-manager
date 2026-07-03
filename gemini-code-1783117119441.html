@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>근무관리 시스템 v9.4</title>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
+    <style>
+        :root {
+            --body-bg: #000000;
+            --app-bg: #0d1117;
+            --card-bg: #161b22;
+            --border-color: #30363d;
+            --text-main: #e0e0e0;
+            --text-white: #ffffff;
+            --text-muted: #8b949e;
+            --accent-color: #00f0ff;
+            --cell-num: #c9d1d9;
+        }
+
+        [data-theme="light"] {
+            --body-bg: #f0f2f5;
+            --app-bg: #ffffff;
+            --card-bg: #f6f8fa;
+            --border-color: #d0d7de;
+            --text-main: #24292f;
+            --text-white: #1f2328;
+            --text-muted: #57606a;
+            --accent-color: #0969da;
+            --cell-num: #24292f;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background-color: var(--body-bg); color: var(--text-main); display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; padding: 8px; transition: background-color 0.2s ease; }
+        
+        .app-container {
+            background-color: var(--app-bg); width: 100%; max-width: 430px; min-height: 840px;
+            border-radius: 16px; padding: 14px 10px; display: flex; flex-direction: column;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3); transition: background-color 0.2s ease;
+        }
+
+        .app-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 0 4px; }
+        .app-title { font-size: 1.2rem; font-weight: 800; color: var(--text-white); letter-spacing: -0.5px; }
+        .month-selector { display: flex; align-items: center; gap: 12px; }
+        .month-selector h2 { font-size: 1.05rem; font-weight: 600; color: var(--text-white); cursor: pointer; padding: 2px 6px; border-radius: 6px; }
+        .month-selector h2:hover { background-color: var(--card-bg); }
+        .arrow { cursor: pointer; color: var(--text-muted); user-select: none; font-size: 1.3rem; }
+
+        .summary-bar {
+            background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px;
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;
+            overflow: hidden; padding: 10px 6px; white-space: nowrap;
+        }
+
+        .summary-left-group { display: flex; align-items: center; gap: 6px; cursor: pointer; flex-shrink: 0; }
+        .main-total-time { font-size: 0.95rem; font-weight: 800; color: var(--accent-color); }
+        .predicted-time { font-size: 0.68rem; color: var(--text-muted); font-weight: 500; margin-right: 2px; }
+        
+        .sum-meal-group { display: flex; gap: 3px; font-size: 0.68rem; color: var(--text-white); align-items: center; }
+        .sum-meal-item { 
+            display: flex; align-items: center; gap: 2px; background: var(--body-bg);
+            padding: 2px 4px; border-radius: 4px; border: 1px solid var(--border-color);
+        }
+
+        .summary-right-group { display: flex; align-items: center; cursor: pointer; font-size: 0.68rem; color: var(--text-main); font-weight: 500; }
+        .dot-split { color: var(--accent-color); margin: 0 1px; }
+
+        .calendar-container { flex-grow: 1; display: flex; flex-direction: column; }
+        .weekdays { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 0.78rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; }
+        .sunday { color: #ff4a4a; }
+        .saturday { color: #4a90e2; }
+
+        .days-grid { display: grid; grid-template-columns: repeat(7, 1fr); grid-auto-rows: minmax(92px, 1fr); gap: 4px; }
+        .day-cell {
+            background-color: var(--card-bg); border-radius: 8px; padding: 4px 2px;
+            display: flex; flex-direction: column; justify-content: space-between; align-items: center;
+            cursor: pointer; border: 1px solid transparent; position: relative;
+        }
+        .day-cell.empty { background-color: transparent; cursor: default; border: none; }
+        .day-cell.today-match { border: 2px solid var(--accent-color) !important; box-shadow: 0 0 6px rgba(0, 240, 255, 0.2); }
+
+        .day-cell.future-day .day-mid-time,
+        .day-cell.future-day .mini-meal {
+            opacity: 0.45;
+            filter: grayscale(1) contrast(0.8);
+            color: var(--text-muted) !important;
+        }
+
+        .day-top-row { display: flex; flex-direction: column; align-items: center; width: 100%; gap: 1px; }
+        .day-cell .num { font-size: 0.85rem; font-weight: bold; color: var(--cell-num); }
+        .day-cell.sun .num { color: #ff4a4a; }
+        .day-cell.sat .num { color: #4a90e2; }
+        .day-cell.holiday .num { color: #ff4a4a; }
+
+        .mini-type-tag { font-size: 0.62rem; padding: 1px 3px; border-radius: 3px; font-weight: 500; line-height: 1; text-align: center; max-width: 100%; overflow: hidden; white-space: nowrap; }
+        .bg-holiday-work { background-color: #1a365d; color: #63b3ed; }
+        [data-theme="light"] .bg-holiday-work { background-color: #ebf8ff; color: #2b6cb0; }
+        .bg-leave { background-color: #5c3715; color: #f6ad55; }
+        [data-theme="light"] .bg-leave { background-color: #feebc8; color: #c05621; }
+        .bg-etc { background-color: #3b1854; color: #d6bcfa; }
+        [data-theme="light"] .bg-etc { background-color: #faf5ff; color: #6b46c1; }
+
+        .day-mid-time { font-size: 0.68rem; color: var(--accent-color); font-weight: 700; letter-spacing: -0.3px; margin: 2px 0; text-align: center; }
+        .day-bottom-row { display: flex; justify-content: center; align-items: center; gap: 2px; width: 100%; min-height: 14px; }
+        .mini-meal { font-size: 0.62rem; line-height: 1; }
+        
+        .mini-duty-badge { font-size: 0.58rem; padding: 0px 2px; border-radius: 2px; font-weight: bold; background-color: #ff4a4a; color: #fff; line-height: 1.2; }
+        .mini-duty-badge.iljik { background-color: #4a90e2; }
+
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.8); display: flex; justify-content: center; align-items: center; padding: 12px; z-index: 999; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; }
+        .modal-overlay.open { opacity: 1; pointer-events: auto; }
+        .modal-content { background-color: var(--app-bg); border: 1px solid var(--border-color); width: 100%; max-width: 390px; border-radius: 16px; padding: 16px; max-height: 85vh; overflow-y: auto; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .close-btn { color: var(--text-muted); cursor: pointer; }
+
+        .setting-base-box { background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 10px; margin-bottom: 14px; }
+        .setting-base-title { font-size: 0.78rem; font-weight: bold; color: var(--accent-color); margin-bottom: 6px; }
+        .setting-base-inputs { display: flex; gap: 8px; align-items: center; }
+        .setting-base-inputs input { padding: 6px; font-size: 0.85rem; background: var(--app-bg); border: 1px solid var(--border-color); color: var(--text-white); border-radius: 6px;}
+
+        .config-table-container { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+        .config-row { display: grid; grid-template-columns: 65px 100px 1fr; gap: 6px; align-items: center; padding: 6px 2px; border-bottom: 1px solid var(--card-bg); }
+        .config-date-label { font-size: 0.8rem; font-weight: 600; }
+        .config-select { padding: 4px; font-size: 0.8rem; border-radius: 6px; background: var(--card-bg); color: var(--text-white); border: 1px solid var(--border-color);}
+        .config-duty-checkboxes { display: flex; gap: 6px; justify-content: flex-end; }
+        .config-check-lbl { font-size: 0.75rem; display: flex; align-items: center; gap: 2px; color: var(--text-main); cursor: pointer; }
+
+        .form-group { margin-bottom: 10px; }
+        .form-group label { display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px; }
+        .time-inputs-row { display: flex; gap: 8px; }
+        .flex-1 { flex: 1; }
+
+        select, input[type="time"] { width: 100%; background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-white); padding: 8px; font-size: 0.85rem; outline: none; }
+        select:focus, input[type="time"]:focus { border-color: var(--accent-color); }
+        input[type="time"]:disabled { background-color: var(--app-bg); color: var(--text-muted); border-color: var(--border-color); cursor: not-allowed; }
+
+        .preview-box { background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 8px; margin: 10px 0; }
+        .preview-title { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 4px; }
+        .preview-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .preview-label { display: block; font-size: 0.68rem; color: var(--text-muted); }
+        .preview-value { font-size: 0.9rem; font-weight: bold; }
+
+        .modal-actions { display: flex; gap: 6px; margin-top: 12px; }
+        .btn { flex: 1; padding: 9px; border-radius: 8px; font-size: 0.82rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .btn-outline { background-color: transparent; border: 1px solid var(--border-color); color: var(--text-main); }
+        .btn-primary { background-color: var(--accent-color); border: none; color: #000000; }
+        [data-theme="light"] .btn-primary { color: #ffffff; }
+
+        .report-section { margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; }
+        .report-title { font-size: 0.82rem; font-weight: bold; color: var(--text-white); margin-bottom: 4px; display: flex; align-items: center; gap: 4px; }
+        .report-row { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 2px; }
+        .report-result { text-align: right; font-size: 0.9rem; font-weight: bold; color: var(--text-white); margin-top: 2px; }
+
+        .theme-switch-container { display: flex; justify-content: space-between; align-items: center; padding: 8px 4px; margin-bottom: 12px; border-bottom: 1px solid var(--border-color); }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <header class="app-header">
+            <div class="app-title">근무관리</div>
+            <div class="month-selector">
+                <span class="material-symbols-outlined arrow" id="prev-month">chevron_left</span>
+                <h2 id="current-month-display" title="오늘 날짜로 이동">2026 · 06월</h2>
+                <span class="material-symbols-outlined arrow" id="next-month">chevron_right</span>
+            </div>
+        </header>
+
+        <section class="summary-bar">
+            <div class="summary-left-group" id="trigger-report-popup">
+                <span class="main-total-time" id="dash-total-overtime">0H 00M</span>
+                <span class="predicted-time" id="dash-predicted-overtime">(예상 0h 00m)</span>
+                <div class="sum-meal-group">
+                    <span class="sum-meal-item" title="조식">☕ <b id="dash-breakfast-count">0</b></span>
+                    <span class="sum-meal-item" title="급량비">🍱 <b id="dash-lunch-count">0</b></span>
+                </div>
+            </div>
+            
+            <div class="summary-right-group" id="trigger-config-popup">
+                <div id="dash-day-distribution">
+                    평일 0<span class="dot-split"> </span>휴일근무 0<span class="dot-split"> </span>휴무 0
+                </div>
+            </div>
+        </section>
+
+        <main class="calendar-container">
+            <div class="weekdays">
+                <div class="sunday">일</div>
+                <div>월</div>
+                <div>화</div>
+                <div>수</div>
+                <div>목</div>
+                <div>금</div>
+                <div class="saturday">토</div>
+            </div>
+            <div class="days-grid" id="days-grid"></div>
+        </main>
+    </div>
+
+    <!-- [팝업 1] 월간 정산 내역 모달 -->
+    <div class="modal-overlay" id="report-modal">
+        <div class="modal-content">
+            <header class="modal-header">
+                <h3 style="font-size:0.95rem; color:var(--text-white);">월간 정산 내역</h3>
+                <span class="material-symbols-outlined close-btn" id="close-report-modal">close</span>
+            </header>
+            
+            <div class="setting-base-box" style="margin-bottom: 12px;">
+                <div class="setting-base-title" style="color:var(--text-white);">적용 직급 선택 (2026년 기준)</div>
+                <select id="grade-selector" style="padding: 6px; font-size: 0.85rem;">
+                    <option value="9">일반 공무원 9급 (시급: 10,949원 / 휴일: 88,017원)</option>
+                    <option value="8">일반 공무원 8급 (시급: 12,113원 / 휴일: 97,373원)</option>
+                    <option value="7">일반 공무원 7급 (시급: 12,368원 / 휴일: 99,422원)</option>
+                    <option value="6">일반 공무원 6급 (시급: 13,692원 / 휴일: 110,065원)</option>
+                </select>
+            </div>
+            
+            <div class="report-section">
+                <div class="report-title"><span class="material-symbols-outlined" style="color:var(--accent-color); font-size:1rem;">more_time</span> 시간외초과근무수당 (전체 실적합산)</div>
+                <div class="report-row"><span>실적 인정 시간</span> <span id="rep-actual-overtime">0H 00M</span></div>
+                <div class="report-row"><span>기본 제공시간</span> <span>10h 00m</span></div>
+                <div class="report-row"><span>적용 시급</span> <span id="rep-hourly-rate">10,949원</span></div>
+                <div class="report-result" style="color:var(--accent-color);" id="rep-overtime-amount">0원</div>
+            </div>
+
+            <div class="report-section">
+                <div class="report-title"><span class="material-symbols-outlined" style="color:#ff4a4a; font-size:1rem;">event_busy</span> 휴일근무수당 (고정 산정)</div>
+                <div class="report-row"><span>당월 실제 휴일근무 일수</span> <span id="rep-holiday-count">0일</span></div>
+                <div class="report-row"><span>휴일 일당 기준</span> <span id="rep-holiday-rate">88,017원</span></div>
+                <div class="report-result" style="color:#ff4a4a;" id="rep-holiday-amount">0원</div>
+            </div>
+
+            <div class="report-section" style="border:none; padding-bottom:0;">
+                <div class="report-title"><span class="material-symbols-outlined" style="color:#ffb700; font-size:1rem;">confirmation_number</span> 급량비 정산 현황</div>
+                <div class="report-row"><span>새벽 조식비 1차(1~15일)</span> <span id="rep-bf1-val">0원</span></div>
+                <div class="report-row"><span>새벽 조식비 2차(16~말일)</span> <span id="rep-bf2-val">0원</span></div>
+                <div class="report-row"><span>한낮 급량비 (최대 20개 제한)</span> <span id="rep-lunch-val">0원</span></div>
+            </div>
+
+            <div class="modal-actions" style="margin-top:16px;">
+                <button type="button" class="btn btn-primary" id="btn-export-excel" style="gap:4px;">
+                    <span class="material-symbols-outlined" style="font-size:1.1rem;">download</span> 엑셀용 CSV 내보내기
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- [팝업 2] 일별 시간 세부 수정 모달 -->
+    <div class="modal-overlay" id="time-modal">
+        <div class="modal-content">
+            <header class="modal-header">
+                <div style="display:flex; align-items:baseline; gap:6px;">
+                    <span id="modal-date-day" style="font-size:1.4rem; font-weight:bold; color:var(--text-white);">1</span>
+                    <span id="modal-date-month-year" style="font-size:0.85rem; color:var(--text-muted);">6월</span>
+                    <span id="modal-date-weekday" style="background-color:#122c34; color:#00f0ff; font-size:0.7rem; padding:1px 4px; border-radius:4px; font-weight:bold;">월</span>
+                </div>
+                <span class="material-symbols-outlined close-btn" id="close-time-modal">close</span>
+            </header>
+
+            <form id="time-form">
+                <div class="form-group">
+                    <label>근무 형태</label>
+                    <select id="modal-work-type">
+                        <option value="평일">평일 (기본근무)</option>
+                        <option value="휴일근무">휴일근무</option>
+                        <option value="휴무">휴무</option>
+                        <option value="연가">연가</option>
+                        <option value="대휴">대휴</option>
+                        <option value="특가">특가</option>
+                        <option value="공가">공가</option>
+                        <option value="조퇴">조퇴</option>
+                        <option value="지각">지각</option>
+                        <option value="오전">오전 반차</option>
+                        <option value="오후">오후 반차</option>
+                    </select>
+                </div>
+
+                <div class="time-inputs-row">
+                    <div class="form-group flex-1">
+                        <label>출근 시간</label>
+                        <input type="time" id="start-time">
+                    </div>
+                    <div class="form-group flex-1">
+                        <label>퇴근 시간</label>
+                        <input type="time" id="end-time">
+                    </div>
+                </div>
+
+                <div class="preview-box">
+                    <p class="preview-title">일일 변동 미리보기</p>
+                    <div class="preview-grid">
+                        <div>
+                            <span class="preview-label">초과 인정</span>
+                            <span class="preview-value" style="color:var(--accent-color);" id="preview-overtime">0H 00M</span>
+                        </div>
+                        <div>
+                            <span class="preview-label">식사 구분</span>
+                            <span class="preview-value" style="color:#ffb700;" id="preview-meals">조식 0 / 급량 0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-outline" id="btn-clear">기본값 리셋</button>
+                    <button type="submit" class="btn btn-primary">변경 저장</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- [팝업 3] 근무 형태 및 당직 종합 관리 모달 -->
+    <div class="modal-overlay" id="config-list-modal">
+        <div class="modal-content">
+            <header class="modal-header">
+                <div><h3 style="font-size:0.95rem; color:var(--text-white);">근무 형태 및 당직 지정</h3></div>
+                <span class="material-symbols-outlined close-btn" id="close-config-modal">close</span>
+            </header>
+
+            <div class="theme-switch-container">
+                <span style="font-size:0.8rem; font-weight:bold;">화면 테마 설정</span>
+                <select id="theme-selector" style="width:110px; padding:4px 6px; font-size:0.8rem;">
+                    <option value="dark">다크 모드</option>
+                    <option value="light">라이트 모드</option>
+                </select>
+            </div>
+
+            <div class="setting-base-box">
+                <div class="setting-base-title">내일부터 적용될 평일 정상근무 기본값</div>
+                <div class="setting-base-inputs">
+                    <input type="time" id="global-cfg-start" value="04:10">
+                    <span style="font-size:0.75rem; color:var(--text-muted);">~</span>
+                    <input type="time" id="global-cfg-end" value="16:10">
+                    <button type="button" id="btn-save-global-cfg" class="btn btn-primary" style="padding:4px 8px; font-size:0.72rem; flex:none;">설정 저장</button>
+                </div>
+            </div>
+            
+            <div class="config-table-container" id="config-rows-injector"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentDate = new Date(2026, 5, 1); 
+        let attendanceData = JSON.parse(localStorage.getItem('overtime_data_v9_4')) || {};
+        let globalConfig = JSON.parse(localStorage.getItem('global_work_config_v9_4')) || { startTime: "04:10", endTime: "16:10" };
+        let currentTheme = localStorage.getItem('app_theme_v9_4') || 'dark';
+        let userGrade = localStorage.getItem('user_grade_v9_4') || '9'; 
+        let selectedDateStr = null;
+        
+        const systemToday = new Date();
+        const todayMidnight = new Date(systemToday.getFullYear(), systemToday.getMonth(), systemToday.getDate());
+
+        const gradeRates = {
+            "9": { hourly: 10949, holiday: 88017 },
+            "8": { hourly: 12113, holiday: 97373 },
+            "7": { hourly: 12368, holiday: 99422 },
+            "6": { hourly: 13692, holiday: 110065 }
+        };
+
+        const daysGrid = document.getElementById('days-grid');
+        const currentMonthDisplay = document.getElementById('current-month-display');
+        const timeModal = document.getElementById('time-modal');
+        const reportModal = document.getElementById('report-modal');
+        const configListModal = document.getElementById('config-list-modal');
+        const modalWorkTypeSelect = document.getElementById('modal-work-type');
+        const startTimeInput = document.getElementById('start-time');
+        const endTimeInput = document.getElementById('end-time');
+        const themeSelector = document.getElementById('theme-selector');
+        const gradeSelector = document.getElementById('grade-selector');
+
+        init();
+
+        function init() {
+            document.documentElement.setAttribute('data-theme', currentTheme);
+            themeSelector.value = currentTheme;
+            gradeSelector.value = userGrade;
+
+            document.getElementById('global-cfg-start').value = globalConfig.startTime;
+            document.getElementById('global-cfg-end').value = globalConfig.endTime;
+            renderCalendar();
+            updateDashboard();
+            setupEventListeners();
+        }
+
+        function isLegalHoliday(year, month, day) {
+            const m = month + 1;
+            const fixedHolidays = ["1-1", "3-1", "5-5", "6-6", "7-17", "8-15", "10-3", "10-9", "12-25"];
+            if (fixedHolidays.includes(`${m}-${day}`)) return true;
+            if (year === 2026) {
+                const dynamic2026 = ["2-16", "2-17", "2-18", "3-3", "5-24", "9-24", "9-25", "9-26"]; 
+                return dynamic2026.includes(`${m}-${day}`);
+            }
+            return false;
+        }
+
+        function applyTimeInputRules(type, targetDateStr = null) {
+            startTimeInput.disabled = false;
+            endTimeInput.disabled = false;
+
+            let saved = targetDateStr ? attendanceData[targetDateStr] : null;
+            let isFriday = false;
+            if (targetDateStr) {
+                let dParts = targetDateStr.split('-').map(Number);
+                if (new Date(dParts[0], dParts[1]-1, dParts[2]).getDay() === 5) {
+                    isFriday = true;
+                }
+            }
+
+            switch (type) {
+                case '평일':
+                    if (saved && saved.startTime) {
+                        startTimeInput.value = saved.startTime;
+                        endTimeInput.value = saved.endTime;
+                    } else {
+                        startTimeInput.value = isFriday ? "06:00" : globalConfig.startTime;
+                        endTimeInput.value = isFriday ? "15:00" : globalConfig.endTime;
+                    }
+                    break;
+                case '휴일근무':
+                    startTimeInput.value = (saved && saved.startTime) ? saved.startTime : ""; 
+                    endTimeInput.value = (saved && saved.endTime) ? saved.endTime : ""; 
+                    break;
+                case '조퇴':
+                    startTimeInput.value = (saved && saved.startTime) ? saved.startTime : "06:00"; 
+                    endTimeInput.value = (saved && saved.endTime) ? saved.endTime : "12:00"; 
+                    break;
+                case '지각':
+                    startTimeInput.value = "08:00"; endTimeInput.value = "15:00"; startTimeInput.disabled = true; break;
+                case '오전':
+                    startTimeInput.value = "10:00"; endTimeInput.value = "15:00"; startTimeInput.disabled = true; break;
+                case '오후':
+                    startTimeInput.value = "06:00"; endTimeInput.value = "10:00"; endTimeInput.disabled = true; break;
+                default: 
+                    startTimeInput.value = ""; endTimeInput.value = "";
+                    startTimeInput.disabled = true; endTimeInput.disabled = true; break;
+            }
+        }
+
+        function parseDailySheet(dateStr, workType, startVal, endVal) {
+            let overtimeMins = 0; let breakfast = 0; let lunch = 0;
+            if (!startVal || !endVal) return { overtimeMins, breakfast, lunch, timeText: "" };
+
+            const [sH, sM] = startVal.split(':').map(Number);
+            const [eH, eM] = endVal.split(':').map(Number);
+            let startMins = sH * 60 + sM;
+            let endMins = eH * 60 + eM;
+            if (endMins < startMins) endMins += 24 * 60; 
+
+            if (workType !== '휴일근무' && !['휴무','연가','대휴','특가','공가'].includes(workType)) {
+                let totalWorkMins = endMins - startMins;
+                let baseWorkMins = 540; 
+                let remainingMins = totalWorkMins - baseWorkMins;
+                if (remainingMins > 0) {
+                    overtimeMins = Math.max(0, remainingMins - 60); 
+                }
+                if (sH < 5) breakfast = 1; 
+                if (eH >= 16) lunch = 1;   
+            } 
+            else if (workType === '휴일근무') {
+                // 🛠️ 휴일 지정 시간(06~11) 외에도 새벽(03~06) 및 오후(15~18) 초과근무 시간 모두를 정합성 있게 누적 계산
+                let targetStart = 3 * 60; 
+                let targetEnd = 6 * 60;   
+                let overlapStart = Math.max(startMins, targetStart);
+                let overlapEnd = Math.min(endMins, targetEnd);
+                if (overlapStart < overlapEnd) {
+                    overtimeMins += (overlapEnd - overlapStart); 
+                }
+
+                // 15시 ~ 18시 구간 추가 연장 분 확인 및 누적
+                let afternoonStart = 15 * 60;
+                let afternoonEnd = 18 * 60;
+                let overlapAfternoonStart = Math.max(startMins, afternoonStart);
+                let overlapAfternoonEnd = Math.min(endMins, afternoonEnd);
+                if (overlapAfternoonStart < overlapAfternoonEnd) {
+                    overtimeMins += (overlapAfternoonEnd - overlapAfternoonStart);
+                }
+
+                let mealMins = 0;
+                let mStart1 = Math.max(startMins, 3 * 60); let mEnd1 = Math.min(endMins, 6 * 60);
+                if (mStart1 < mEnd1) mealMins += (mEnd1 - mStart1);
+                let mStart2 = Math.max(startMins, 15 * 60); let mEnd2 = Math.min(endMins, 18 * 60);
+                if (mStart2 < mEnd2) mealMins += (mEnd2 - mStart2);
+
+                if (mealMins >= 120) lunch = 1;
+            }
+
+            const h = Math.floor(overtimeMins / 60);
+            const m = overtimeMins % 60;
+            return { 
+                overtimeMins, breakfast, lunch, 
+                timeText: overtimeMins > 0 ? `${h}H ${String(m).padStart(2, '0')}M` : "" 
+            };
+        }
+
+        function getBaseWorkType(year, month, day, dayOfWeek, isHoli) {
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            if (attendanceData[dateStr] && attendanceData[dateStr].workType) return attendanceData[dateStr].workType;
+
+            if (dayOfWeek === 1 || (dayOfWeek >= 2 && dayOfWeek <= 5)) {
+                const prevStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day - 1).padStart(2, '0')}`;
+                if (attendanceData[prevStr] && attendanceData[prevStr].isSukjik) return '대휴';
+            }
+
+            if (isHoli || dayOfWeek === 6) return '휴일근무';
+            if (dayOfWeek === 0) return '휴무';
+            return '평일';
+        }
+
+        function renderCalendar() {
+            daysGrid.innerHTML = '';
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+
+            currentMonthDisplay.textContent = `${year} · ${String(month + 1).padStart(2, '0')}월`;
+
+            const firstDayIndex = new Date(year, month, 1).getDay();
+            const lastDay = new Date(year, month + 1, 0).getDate();
+
+            for (let i = 0; i < firstDayIndex; i++) {
+                const emptyCell = document.createElement('div');
+                emptyCell.classList.add('day-cell', 'empty');
+                daysGrid.appendChild(emptyCell);
+            }
+
+            for (let day = 1; day <= lastDay; day++) {
+                const dayCell = document.createElement('div');
+                dayCell.classList.add('day-cell');
+                
+                const cellDate = new Date(year, month, day);
+                const dayOfWeek = cellDate.getDay();
+                const isHoli = isLegalHoliday(year, month, day);
+                if (dayOfWeek === 0) dayCell.classList.add('sun');
+                if (dayOfWeek === 6) dayCell.classList.add('sat');
+                if (isHoli) dayCell.classList.add('holiday');
+
+                if (year === systemToday.getFullYear() && month === systemToday.getMonth() && day === systemToday.getDate()) {
+                    dayCell.classList.add('today-match');
+                }
+
+                const isFuture = cellDate > todayMidnight;
+                if (isFuture) {
+                    dayCell.classList.add('future-day');
+                }
+
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                dayCell.dataset.date = dateStr;
+
+                let computedType = getBaseWorkType(year, month, day, dayOfWeek, isHoli);
+                let saved = attendanceData[dateStr];
+                
+                let activeType = saved ? saved.workType : computedType;
+                let activeStart = saved ? saved.startTime : "";
+                let activeEnd = saved ? saved.endTime : "";
+                let isSuk = saved ? saved.isSukjik : false;
+                let isIl = saved ? saved.isIljik : false;
+                
+                if (!saved) {
+                    if (activeType === '평일') { 
+                        activeStart = (dayOfWeek === 5) ? "06:00" : globalConfig.startTime; 
+                        activeEnd = (dayOfWeek === 5) ? "15:00" : globalConfig.endTime; 
+                    }
+                }
+
+                let classDecorator = "";
+                if (activeType === '휴일근무') classDecorator = "bg-holiday-work";
+                else if (['휴무', '연가', '대휴', '특가', '공가'].includes(activeType)) classDecorator = "bg-leave";
+                else if (['조퇴', '지각', '오전', '오후'].includes(activeType)) classDecorator = "bg-etc";
+
+                let displayTag = (activeType !== '평일') ? `<span class="mini-type-tag ${classDecorator}">${activeType}</span>` : '';
+                let metrics = parseDailySheet(dateStr, activeType, activeStart, activeEnd);
+                
+                let midTimeHtml = metrics.timeText ? `<div class="day-mid-time">${metrics.timeText.replace(' ', '')}</div>` : `<div class="day-mid-time" style="visibility:hidden;">-</div>`;
+
+                let mealIconsStr = "";
+                if (metrics.breakfast > 0) mealIconsStr += "☕"; 
+                if (metrics.lunch > 0) mealIconsStr += "🍱"; 
+
+                let bottomInfoHtml = `
+                    <div class="day-bottom-row">
+                        ${mealIconsStr ? `<span class="mini-meal">${mealIconsStr}</span>` : ''}
+                        ${isSuk ? `<span class="mini-duty-badge">숙</span>` : ''}
+                        ${isIl ? `<span class="mini-duty-badge">일</span>` : ''}
+                    </div>
+                `;
+
+                dayCell.innerHTML = `
+                    <div class="day-top-row">
+                        <span class="num">${day}</span>
+                        ${displayTag}
+                    </div>
+                    ${midTimeHtml}
+                    ${bottomInfoHtml}
+                `;
+
+                dayCell.addEventListener('click', () => openTimeModal(dateStr, day, dayOfWeek, isHoli));
+                daysGrid.appendChild(dayCell);
+            }
+        }
+
+        function updateDashboard() {
+            const year = currentDate.getFullYear();
+            const monthIdx = currentDate.getMonth();
+            const prefix = `${year}-${String(monthIdx + 1).padStart(2, '0')}`;
+            const totalDays = new Date(year, monthIdx + 1, 0).getDate();
+
+            let actualOvertimeMins = 0;   
+            let predictedOvertimeMins = 0;
+            let fullMonthHolidayCount = 0; 
+
+            let bf1Count = 0; let bf2Count = 0; let rawLunchCount = 0;
+            let countNormal = 0; let countHolidayWork = 0; let countHuumu = 0;
+
+            const currentRates = gradeRates[userGrade] || gradeRates["9"];
+
+            for (let d = 1; d <= totalDays; d++) {
+                const dStr = `${prefix}-${String(d).padStart(2, '0')}`;
+                const dayOfWeek = new Date(year, monthIdx, d).getDay();
+                const isHoli = isLegalHoliday(year, monthIdx, d);
+
+                let currentType = getBaseWorkType(year, monthIdx, d, dayOfWeek, isHoli);
+                let saved = attendanceData[dStr];
+
+                let startVal = saved ? saved.startTime : "";
+                let endVal = saved ? saved.endTime : "";
+
+                if (!saved) {
+                    if (currentType === '평일') { 
+                        startVal = (dayOfWeek === 5) ? "06:00" : globalConfig.startTime; 
+                        endVal = (dayOfWeek === 5) ? "15:00" : globalConfig.endTime; 
+                    }
+                }
+
+                let metrics = parseDailySheet(dStr, currentType, startVal, endVal);
+                const loopDate = new Date(year, monthIdx, d);
+                
+                const isPastOrToday = (loopDate <= todayMidnight);
+
+                // 🛠️ 고정 조건 제거: 이제 평일이든 휴일이든 상관없이 등록 및 실적이 검증되면 전체 총 시간에 합산처리됩니다.
+                if (saved || isPastOrToday) {
+                    actualOvertimeMins += metrics.overtimeMins; 
+                }
+                predictedOvertimeMins += metrics.overtimeMins;
+                
+                if (currentType === '휴일근무') {
+                    if (saved || isPastOrToday) {
+                        fullMonthHolidayCount++;
+                    }
+                }
+
+                if (saved || isPastOrToday) {
+                    if (d <= 15) bf1Count += metrics.breakfast;
+                    else bf2Count += metrics.breakfast;
+                    rawLunchCount += metrics.lunch;
+                }
+
+                if (currentType === '평일' || ['조퇴', '지각', '오전', '오후'].includes(currentType)) {
+                    countNormal++;
+                } else if (currentType === '휴일근무') {
+                    countHolidayWork++;
+                } else if (['휴무', '연가', '대휴', '특가', '공가'].includes(currentType)) {
+                    countHuumu++;
+                }
+            }
+
+            const h = Math.floor(actualOvertimeMins / 60);
+            const m = actualOvertimeMins % 60;
+            document.getElementById('dash-total-overtime').textContent = `${h}H ${String(m).padStart(2, '0')}M`;
+
+            const ph = Math.floor(predictedOvertimeMins / 60);
+            const pm = Math.floor(predictedOvertimeMins % 60);
+            document.getElementById('dash-predicted-overtime').textContent = `(예상 ${ph}h${String(pm).padStart(2, '0')}m)`;
+            
+            document.getElementById('dash-breakfast-count').textContent = bf1Count + bf2Count;
+            document.getElementById('dash-lunch-count').textContent = rawLunchCount; 
+
+            document.getElementById('dash-day-distribution').innerHTML = `
+                평일 ${countNormal}<span class="dot-split"> </span>휴일 ${countHolidayWork}<span class="dot-split"> </span>휴무 ${countHuumu}
+            `;
+
+            let limitedOvertimeMins = Math.min(actualOvertimeMins, 50 * 60);
+            const lh = Math.floor(limitedOvertimeMins / 60);
+            document.getElementById('rep-actual-overtime').textContent = `${h}H ${String(m).padStart(2, '0')}M (인정: ${lh}H)`;
+
+            document.getElementById('rep-hourly-rate').textContent = `${currentRates.hourly.toLocaleString()}원`;
+            let overtimeSalary = Math.floor(((lh + 10) * currentRates.hourly) / 10) * 10;
+            document.getElementById('rep-overtime-amount').textContent = `${overtimeSalary.toLocaleString()}원`;
+
+            document.getElementById('rep-holiday-rate').textContent = `${currentRates.holiday.toLocaleString()}원`;
+            let holidaySalary = Math.floor((fullMonthHolidayCount * currentRates.holiday) / 10) * 10;
+            document.getElementById('rep-holiday-count').textContent = `${fullMonthHolidayCount}일`;
+            document.getElementById('rep-holiday-amount').textContent = `${holidaySalary.toLocaleString()}원`;
+
+            let limitedLunchCount = Math.min(rawLunchCount, 20);
+            document.getElementById('rep-bf1-val').textContent = `${bf1Count}개 = ${(bf1Count * 9000).toLocaleString()}원`;
+            document.getElementById('rep-bf2-val').textContent = `${bf2Count}개 = ${(bf2Count * 9000).toLocaleString()}원`;
+            document.getElementById('rep-lunch-val').textContent = `${limitedLunchCount}개 (원천: ${rawLunchCount}개) = ${(limitedLunchCount * 9000).toLocaleString()}원`;
+        }
+
+        function exportToCsv() {
+            const year = currentDate.getFullYear();
+            const monthIdx = currentDate.getMonth();
+            const prefix = `${year}-${String(monthIdx + 1).padStart(2, '0')}`;
+            const totalDays = new Date(year, monthIdx + 1, 0).getDate();
+
+            let csvContent = "\uFEFF";
+            csvContent += "날짜,근무형태,출근시간,퇴근시간,실적정산시간,조식(여부),급량비(여부),숙직,일직\n";
+
+            for (let d = 1; d <= totalDays; d++) {
+                const dStr = `${prefix}-${String(d).padStart(2, '0')}`;
+                const dayOfWeek = new Date(year, monthIdx, d).getDay();
+                const isHoli = isLegalHoliday(year, monthIdx, d);
+                const dayLabels = ['일','월','화','수','목','금','토'];
+
+                let currentType = getBaseWorkType(year, monthIdx, d, dayOfWeek, isHoli);
+                let saved = attendanceData[dStr];
+
+                let startVal = saved ? saved.startTime : "";
+                let endVal = saved ? saved.endTime : "";
+                let isSuk = saved && saved.isSukjik ? "O" : "X";
+                let isIl = saved && saved.isIljik ? "O" : "X";
+
+                if (!saved) {
+                    if (currentType === '평일') { 
+                        startVal = (dayOfWeek === 5) ? "06:00" : globalConfig.startTime; 
+                        endVal = (dayOfWeek === 5) ? "15:00" : globalConfig.endTime; 
+                    }
+                }
+
+                let metrics = parseDailySheet(dStr, currentType, startVal, endVal);
+                let timeTxt = metrics.timeText ? metrics.timeText : "0H 00M";
+                let bfTxt = metrics.breakfast > 0 ? "1" : "0";
+                let lunchTxt = metrics.lunch > 0 ? "1" : "0";
+
+                csvContent += `${d}일(${dayLabels[dayOfWeek]}),${currentType},${startVal || "-"},${endVal || "-"},${timeTxt},${bfTxt},${lunchTxt},${isSuk},${isIl}\n`;
+            }
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", `근무내역_정산_${year}년_${monthIdx+1}월.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function openConfigListModal() {
+            const injector = document.getElementById('config-rows-injector');
+            injector.innerHTML = '';
+
+            const year = currentDate.getFullYear();
+            const monthIdx = currentDate.getMonth();
+            const prefix = `${year}-${String(monthIdx + 1).padStart(2, '0')}`;
+            const totalDays = new Date(year, monthIdx + 1, 0).getDate();
+            const weekdaysText = ['일', '월', '화', '수', '목', '금', '토'];
+
+            for (let d = 1; d <= totalDays; d++) {
+                const dStr = `${prefix}-${String(d).padStart(2, '0')}`;
+                const dayOfWeek = new Date(year, monthIdx, d).getDay();
+                const isHoli = isLegalHoliday(year, monthIdx, d);
+
+                let saved = attendanceData[dStr];
+                let activeType = saved ? saved.workType : getBaseWorkType(year, monthIdx, d, dayOfWeek, isHoli);
+                let isSuk = saved ? saved.isSukjik : false;
+                let isIl = saved ? saved.isIljik : false;
+
+                const row = document.createElement('div');
+                row.classList.add('config-row');
+                
+                let textColor = "var(--text-main)";
+                if(dayOfWeek===0 || isHoli) textColor = "#ff4a4a";
+                if(dayOfWeek===6) textColor = "#4a90e2";
+
+                row.innerHTML = `
+                    <div class="config-date-label" style="color: ${textColor};">${d}일(${weekdaysText[dayOfWeek]})</div>
+                    <div>
+                        <select class="config-select" data-date="${dStr}">
+                            <option value="평일" ${activeType==='평일'?'selected':''}>평일</option>
+                            <option value="휴일근무" ${activeType==='휴일근무'?'selected':''}>휴일근무</option>
+                            <option value="휴무" ${activeType==='휴무'?'selected':''}>휴무</option>
+                            <option value="연가" ${activeType==='연가'?'selected':''}>연가</option>
+                            <option value="대휴" ${activeType==='대휴'?'selected':''}>대휴</option>
+                            <option value="특가" ${activeType==='특가'?'selected':''}>특가</option>
+                            <option value="공가" ${activeType==='공가'?'selected':''}>공가</option>
+                            <option value="조퇴" ${activeType==='조퇴'?'selected':''}>조퇴</option>
+                            <option value="지각" ${activeType==='지각'?'selected':''}>지각</option>
+                        </select>
+                    </div>
+                    <div class="config-duty-checkboxes">
+                        <label class="config-check-lbl"><input type="checkbox" class="suk-chk" data-date="${dStr}" ${isSuk?'checked':''}> 숙직</label>
+                        <label class="config-check-lbl"><input type="checkbox" class="il-chk" data-date="${dStr}" ${isIl?'checked':''}> 일직</label>
+                    </div>
+                `;
+
+                row.querySelector('.config-select').addEventListener('change', (e) => {
+                    const targetDate = e.target.dataset.date;
+                    const nextType = e.target.value;
+                    initDayContainer(targetDate);
+                    attendanceData[targetDate].workType = nextType;
+                    
+                    let targetDayOfWeek = new Date(targetDate.split('-')[0], targetDate.split('-')[1]-1, targetDate.split('-')[2]).getDay();
+
+                    if (nextType === '평일') { 
+                        attendanceData[targetDate].startTime = (targetDayOfWeek === 5) ? "06:00" : globalConfig.startTime; 
+                        attendanceData[targetDate].endTime = (targetDayOfWeek === 5) ? "15:00" : globalConfig.endTime; 
+                    }
+                    else if (nextType === '휴일근무') { attendanceData[targetDate].startTime = ""; attendanceData[targetDate].endTime = ""; }
+                    else if (nextType === '조퇴') { attendanceData[targetDate].startTime = "06:00"; attendanceData[targetDate].endTime = "12:00"; }
+                    
+                    syncAndRefresh(targetDate);
+                });
+
+                row.querySelector('.suk-chk').addEventListener('change', (e) => {
+                    const targetDate = e.target.dataset.date;
+                    initDayContainer(targetDate, activeType); 
+                    attendanceData[targetDate].isSukjik = e.target.checked;
+                    syncAndRefresh(targetDate);
+                });
+
+                row.querySelector('.il-chk').addEventListener('change', (e) => {
+                    const targetDate = e.target.dataset.date;
+                    initDayContainer(targetDate, activeType);
+                    attendanceData[targetDate].isIljik = e.target.checked;
+                    syncAndRefresh(targetDate);
+                });
+
+                injector.appendChild(row);
+            }
+
+            configListModal.classList.add('open');
+        }
+
+        function initDayContainer(dateStr, fallbackType = "평일") {
+            if (!attendanceData[dateStr]) {
+                let targetDayOfWeek = new Date(dateStr.split('-')[0], dateStr.split('-')[1]-1, dateStr.split('-')[2]).getDay();
+                let isFri = (targetDayOfWeek === 5 && fallbackType === "평일");
+                attendanceData[dateStr] = {
+                    workType: fallbackType, 
+                    startTime: isFri ? "06:00" : (fallbackType === "평일" ? globalConfig.startTime : ""), 
+                    endTime: isFri ? "15:00" : (fallbackType === "평일" ? globalConfig.endTime : ""),
+                    isSukjik: false, isIljik: false, overtimeMins: 0, breakfast: 0, lunch: 0
+                };
+            }
+        }
+
+        function syncAndRefresh(dateStr) {
+            let item = attendanceData[dateStr];
+            let res = parseDailySheet(dateStr, item.workType, item.startTime, item.endTime);
+            item.overtimeMins = res.overtimeMins;
+            item.breakfast = res.breakfast;
+            item.lunch = res.lunch;
+            item.overtimeText = res.timeText;
+
+            localStorage.setItem('overtime_data_v9_4', JSON.stringify(attendanceData));
+            renderCalendar();
+            updateDashboard();
+        }
+
+        function openTimeModal(dateStr, dayNum, dayOfWeek, isHoli) {
+            selectedDateStr = dateStr;
+            const weekdaysText = ['일', '월', '화', '수', '목', '금', '토'];
+
+            document.getElementById('modal-date-day').textContent = dayNum;
+            document.getElementById('modal-date-month-year').textContent = `${currentDate.getMonth() + 1}월`;
+            document.getElementById('modal-date-weekday').textContent = weekdaysText[dayOfWeek];
+
+            let saved = attendanceData[dateStr];
+            if (saved) {
+                modalWorkTypeSelect.value = saved.workType;
+                applyTimeInputRules(saved.workType, dateStr);
+            } else {
+                modalWorkTypeSelect.value = getBaseWorkType(currentDate.getFullYear(), currentDate.getMonth(), dayNum, dayOfWeek, isHoli);
+                applyTimeInputRules(modalWorkTypeSelect.value, dateStr);
+            }
+
+            updateModalLivePreview();
+            timeModal.classList.add('open');
+        }
+
+        function updateModalLivePreview() {
+            let res = parseDailySheet(selectedDateStr, modalWorkTypeSelect.value, startTimeInput.value, endTimeInput.value);
+            document.getElementById('preview-overtime').textContent = res.timeText ? res.timeText : "0H 00M";
+            document.getElementById('preview-meals').textContent = `조식 ${res.breakfast} / 급량 ${res.lunch}`;
+        }
+
+        function setupEventListeners() {
+            document.getElementById('trigger-report-popup').addEventListener('click', () => reportModal.classList.add('open'));
+            document.getElementById('trigger-config-popup').addEventListener('click', () => openConfigListModal());
+            
+            document.getElementById('close-report-modal').addEventListener('click', () => reportModal.classList.remove('open'));
+            document.getElementById('close-config-modal').addEventListener('click', () => configListModal.classList.remove('open'));
+
+            currentMonthDisplay.addEventListener('click', () => {
+                currentDate = new Date(systemToday.getFullYear(), systemToday.getMonth(), 1);
+                renderCalendar();
+                updateDashboard();
+            });
+
+            document.getElementById('btn-export-excel').addEventListener('click', exportToCsv);
+
+            themeSelector.addEventListener('change', (e) => {
+                currentTheme = e.target.value;
+                document.documentElement.setAttribute('data-theme', currentTheme);
+                localStorage.setItem('app_theme_v9_4', currentTheme);
+            });
+
+            gradeSelector.addEventListener('change', (e) => {
+                userGrade = e.target.value;
+                localStorage.setItem('user_grade_v9_4', userGrade);
+                updateDashboard();
+            });
+
+            document.getElementById('btn-save-global-cfg').addEventListener('click', () => {
+                const s = document.getElementById('global-cfg-start').value;
+                const e = document.getElementById('global-cfg-end').value;
+                if(!s || !e) { alert("출퇴근 시간을 올바르게 넣어주세요."); return; }
+                
+                globalConfig.startTime = s;
+                globalConfig.endTime = e;
+                localStorage.setItem('global_work_config_v9_4', JSON.stringify(globalConfig));
+                
+                alert("내일부터의 평일 기본 근무시간 설정이 변경되었습니다.");
+                renderCalendar();
+                updateDashboard();
+            });
+
+            modalWorkTypeSelect.addEventListener('change', (e) => {
+                applyTimeInputRules(e.target.value, selectedDateStr);
+                updateModalLivePreview();
+            });
+            [startTimeInput, endTimeInput].forEach(inp => {
+                inp.addEventListener('input', () => updateModalLivePreview());
+            });
+
+            document.getElementById('close-time-modal').addEventListener('click', () => timeModal.classList.remove('open'));
+
+            document.getElementById('btn-clear').addEventListener('click', () => {
+                if (attendanceData[selectedDateStr]) {
+                    let heldSuk = attendanceData[selectedDateStr].isSukjik || false;
+                    let heldIl = attendanceData[selectedDateStr].isIljik || false;
+                    delete attendanceData[selectedDateStr];
+                    if(heldSuk || heldIl) {
+                        let targetDayOfWeek = new Date(selectedDateStr.split('-')[0], selectedDateStr.split('-')[1]-1, selectedDateStr.split('-')[2]).getDay();
+                        attendanceData[selectedDateStr] = {
+                            workType: "평일", 
+                            startTime: (targetDayOfWeek===5)?"06:00":globalConfig.startTime, 
+                            endTime: (targetDayOfWeek===5)?"15:00":globalConfig.endTime,
+                            isSukjik: heldSuk, isIljik: heldIl, overtimeMins: 0, breakfast: 0, lunch: 0
+                        };
+                    }
+                    localStorage.setItem('overtime_data_v9_4', JSON.stringify(attendanceData));
+                }
+                timeModal.classList.remove('open');
+                renderCalendar();
+                updateDashboard();
+            });
+
+            document.getElementById('time-form').addEventListener('submit', (e) => {
+                e.preventDefault();
+                let res = parseDailySheet(selectedDateStr, modalWorkTypeSelect.value, startTimeInput.value, endTimeInput.value);
+                
+                let prevSuk = false; let prevIl = false;
+                if(attendanceData[selectedDateStr]) {
+                    prevSuk = attendanceData[selectedDateStr].isSukjik || false;
+                    prevIl = attendanceData[selectedDateStr].isIljik || false;
+                }
+
+                attendanceData[selectedDateStr] = {
+                    workType: modalWorkTypeSelect.value,
+                    startTime: startTimeInput.value,
+                    endTime: endTimeInput.value,
+                    isSukjik: prevSuk,
+                    isIljik: prevIl,
+                    overtimeText: res.timeText,
+                    overtimeMins: res.overtimeMins,
+                    breakfast: res.breakfast,
+                    lunch: res.lunch
+                };
+
+                localStorage.setItem('overtime_data_v9_4', JSON.stringify(attendanceData));
+                timeModal.classList.remove('open');
+                renderCalendar();
+                updateDashboard();
+            });
+
+            document.getElementById('prev-month').addEventListener('click', () => {
+                if (currentDate.getFullYear() === 2026 && currentDate.getMonth() === 5) {
+                    alert("2026년 06월 이전으로는 이동할 수 없습니다.");
+                    return;
+                }
+                currentDate.setMonth(currentDate.getMonth() - 1);
+                renderCalendar();
+                updateDashboard();
+            });
+            document.getElementById('next-month').addEventListener('click', () => {
+                currentDate.setMonth(currentDate.getMonth() + 1);
+                renderCalendar();
+                updateDashboard();
+            });
+        }
+    </script>
+</body>
+</html>
