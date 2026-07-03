@@ -3,7 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>근무관리 시스템 v9.4 (구글 연동)</title>
+    <!-- 모바일 어플처럼 꽉 차게 보여주는 설정들 -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
+    
+    <title>근무관리 시스템 v9.6 (실시간 연동)</title>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
     <style>
         :root {
@@ -81,9 +86,7 @@
 
         .day-cell.future-day .day-mid-time,
         .day-cell.future-day .mini-meal {
-            opacity: 0.45;
-            filter: grayscale(1) contrast(0.8);
-            color: var(--text-muted) !important;
+            opacity: 0.45; filter: grayscale(1) contrast(0.8); color: var(--text-muted) !important;
         }
 
         .day-top-row { display: flex; flex-direction: column; align-items: center; width: 100%; gap: 1px; }
@@ -121,7 +124,7 @@
         .config-table-container { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
         .config-row { display: grid; grid-template-columns: 65px 100px 1fr; gap: 6px; align-items: center; padding: 6px 2px; border-bottom: 1px solid var(--card-bg); }
         .config-date-label { font-size: 0.8rem; font-weight: 600; }
-        .config-select { padding: 4px; font-size: 0.8rem; border-radius: 6px; background: var(--card-bg); color: var(--text-white); border: 1px solid var(--border-color);}
+        .config-select { padding: 4px; font-size: 0.8rem; border-radius: 6px; background: var(--card-bg); color: var(--text-white); border: 1px solid var(--border-color); }
         .config-duty-checkboxes { display: flex; gap: 6px; justify-content: flex-end; }
         .config-check-lbl { font-size: 0.75rem; display: flex; align-items: center; gap: 2px; color: var(--text-main); cursor: pointer; }
 
@@ -152,8 +155,6 @@
         .report-result { text-align: right; font-size: 0.9rem; font-weight: bold; color: var(--text-white); margin-top: 2px; }
 
         .theme-switch-container { display: flex; justify-content: space-between; align-items: center; padding: 8px 4px; margin-bottom: 12px; border-bottom: 1px solid var(--border-color); }
-        
-        /* 실시간 구글 연동 중 알림 레이어 스타일 */
         .sync-toast { position: fixed; bottom: 20px; right: 20px; background: rgba(0, 240, 255, 0.9); color: #000; padding: 10px 16px; border-radius: 8px; font-size: 0.82rem; font-weight: bold; z-index: 10000; box-shadow: 0 4px 12px rgba(0,0,0,0.5); display: none; }
     </style>
 </head>
@@ -164,7 +165,7 @@
             <div class="app-title">근무관리</div>
             <div class="month-selector">
                 <span class="material-symbols-outlined arrow" id="prev-month">chevron_left</span>
-                <h2 id="current-month-display" title="오늘 날짜로 이동">2026 · 06월</h2>
+                <h2 id="current-month-display" title="오늘 날짜로 이동">2026 · 07월</h2>
                 <span class="material-symbols-outlined arrow" id="next-month">chevron_right</span>
             </div>
         </header>
@@ -254,7 +255,7 @@
             <header class="modal-header">
                 <div style="display:flex; align-items:baseline; gap:6px;">
                     <span id="modal-date-day" style="font-size:1.4rem; font-weight:bold; color:var(--text-white);">1</span>
-                    <span id="modal-date-month-year" style="font-size:0.85rem; color:var(--text-muted);">6월</span>
+                    <span id="modal-date-month-year" style="font-size:0.85rem; color:var(--text-muted);">7월</span>
                     <span id="modal-date-weekday" style="background-color:#122c34; color:#00f0ff; font-size:0.7rem; padding:1px 4px; border-radius:4px; font-weight:bold;">월</span>
                 </div>
                 <span class="material-symbols-outlined close-btn" id="close-time-modal">close</span>
@@ -341,21 +342,22 @@
         </div>
     </div>
 
-    <!-- 연동 상태 알림 토스트 -->
     <div id="sync-toast" class="sync-toast">구글 스프레드시트 동기화 중...</div>
 
     <script>
-        // 🔗 1단계에서 안전하게 복사해 오신 선생님의 구글 웹 앱 통신용 핵심 통로 주소
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxC-8y3Ss_vyczVxIJAwgToCBh-wKf9iaHKRxzt9J44DsTfDjIfo_AXXC8LSz1EqJj2Vg/exec";
+        // 🔗 새로 발급받으신 주소로 완전히 적용해 두었습니다!
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbypyn3yJwfoFuHvyLe0m6l8L0o_JuTnF_bM0Ya-hemXviZhJaFk1lWyVJwme2ZoQND1mw/exec";
 
-        let currentDate = new Date(2026, 5, 1); 
+        // 항상 오늘 날짜 기준으로 시작하도록 변경
+        const systemToday = new Date();
+        let currentDate = new Date(systemToday.getFullYear(), systemToday.getMonth(), 1); 
+        
         let attendanceData = JSON.parse(localStorage.getItem('overtime_data_v9_4')) || {};
         let globalConfig = JSON.parse(localStorage.getItem('global_work_config_v9_4')) || { startTime: "04:10", endTime: "16:10" };
         let currentTheme = localStorage.getItem('app_theme_v9_4') || 'dark';
         let userGrade = localStorage.getItem('user_grade_v9_4') || '9'; 
         let selectedDateStr = null;
         
-        const systemToday = new Date();
         const todayMidnight = new Date(systemToday.getFullYear(), systemToday.getMonth(), systemToday.getDate());
 
         const gradeRates = {
@@ -391,11 +393,9 @@
             setupEventListeners();
         }
 
-        // 구글 스프레드시트로 실시간 통신 데이터를 날려주는 전송 함수 (비동기)
         function sendDataToGoogleSheets(dateStr, itemData) {
             showToast("구글 스프레드시트에 저장 중...");
             
-            // 전송용 데이터 포맷 구성
             const payload = {
                 date: dateStr,
                 workType: itemData ? itemData.workType : "기본값(리셋)",
@@ -410,16 +410,14 @@
 
             fetch(SCRIPT_URL, {
                 method: "POST",
-                mode: "no-cors", // 교차 출처(CORS) 오류 우회 옵션
+                mode: "no-cors",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
             })
-            .then(() => {
-                showToast("구글 서버 저장 완료! ✅", 2000);
-            })
+            .then(() => { showToast("구글 서버 저장 완료! ✅", 2000); })
             .catch(err => {
-                console.error("구글 연동 실패:", err);
-                showToast("구글 동기화 실패 ❌ (네트워크 확인)", 3000);
+                console.error(err);
+                showToast("구글 동기화 실패 ❌", 3000);
             });
         }
 
@@ -450,9 +448,7 @@
             let isFriday = false;
             if (targetDateStr) {
                 let dParts = targetDateStr.split('-').map(Number);
-                if (new Date(dParts[0], dParts[1]-1, dParts[2]).getDay() === 5) {
-                    isFriday = true;
-                }
+                if (new Date(dParts[0], dParts[1]-1, dParts[2]).getDay() === 5) { isFriday = true; }
             }
 
             switch (type) {
@@ -499,28 +495,20 @@
                 let totalWorkMins = endMins - startMins;
                 let baseWorkMins = 540; 
                 let remainingMins = totalWorkMins - baseWorkMins;
-                if (remainingMins > 0) {
-                    overtimeMins = Math.max(0, remainingMins - 60); 
-                }
+                if (remainingMins > 0) { overtimeMins = Math.max(0, remainingMins - 60); }
                 if (sH < 5) breakfast = 1; 
                 if (eH >= 16) lunch = 1;   
             } 
             else if (workType === '휴일근무') {
-                let targetStart = 3 * 60; 
-                let targetEnd = 6 * 60;   
+                let targetStart = 3 * 60; let targetEnd = 6 * 60;   
                 let overlapStart = Math.max(startMins, targetStart);
                 let overlapEnd = Math.min(endMins, targetEnd);
-                if (overlapStart < overlapEnd) {
-                    overtimeMins += (overlapEnd - overlapStart); 
-                }
+                if (overlapStart < overlapEnd) { overtimeMins += (overlapEnd - overlapStart); }
 
-                let afternoonStart = 15 * 60;
-                let afternoonEnd = 18 * 60;
+                let afternoonStart = 15 * 60; let afternoonEnd = 18 * 60;
                 let overlapAfternoonStart = Math.max(startMins, afternoonStart);
                 let overlapAfternoonEnd = Math.min(endMins, afternoonEnd);
-                if (overlapAfternoonStart < overlapAfternoonEnd) {
-                    overtimeMins += (overlapAfternoonEnd - overlapAfternoonStart);
-                }
+                if (overlapAfternoonStart < overlapAfternoonEnd) { overtimeMins += (overlapAfternoonEnd - overlapAfternoonStart); }
 
                 let mealMins = 0;
                 let mStart1 = Math.max(startMins, 3 * 60); let mEnd1 = Math.min(endMins, 6 * 60);
@@ -533,10 +521,7 @@
 
             const h = Math.floor(overtimeMins / 60);
             const m = overtimeMins % 60;
-            return { 
-                overtimeMins, breakfast, lunch, 
-                timeText: overtimeMins > 0 ? `${h}H ${String(m).padStart(2, '0')}M` : "" 
-            };
+            return { overtimeMins, breakfast, lunch, timeText: overtimeMins > 0 ? `${h}H ${String(m).padStart(2, '0')}M` : "" };
         }
 
         function getBaseWorkType(year, month, day, dayOfWeek, isHoli) {
@@ -547,7 +532,6 @@
                 const prevStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day - 1).padStart(2, '0')}`;
                 if (attendanceData[prevStr] && attendanceData[prevStr].isSukjik) return '대휴';
             }
-
             if (isHoli || dayOfWeek === 6) return '휴일근무';
             if (dayOfWeek === 0) return '휴무';
             return '평일';
@@ -585,9 +569,7 @@
                 }
 
                 const isFuture = cellDate > todayMidnight;
-                if (isFuture) {
-                    dayCell.classList.add('future-day');
-                }
+                if (isFuture) { dayCell.classList.add('future-day'); }
 
                 const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                 dayCell.dataset.date = dateStr;
@@ -601,11 +583,9 @@
                 let isSuk = saved ? saved.isSukjik : false;
                 let isIl = saved ? saved.isIljik : false;
                 
-                if (!saved) {
-                    if (activeType === '평일') { 
-                        activeStart = (dayOfWeek === 5) ? "06:00" : globalConfig.startTime; 
-                        activeEnd = (dayOfWeek === 5) ? "15:00" : globalConfig.endTime; 
-                    }
+                if (!saved && activeType === '평일') { 
+                    activeStart = (dayOfWeek === 5) ? "06:00" : globalConfig.startTime; 
+                    activeEnd = (dayOfWeek === 5) ? "15:00" : globalConfig.endTime; 
                 }
 
                 let classDecorator = "";
@@ -615,28 +595,20 @@
 
                 let displayTag = (activeType !== '평일') ? `<span class="mini-type-tag ${classDecorator}">${activeType}</span>` : '';
                 let metrics = parseDailySheet(dateStr, activeType, activeStart, activeEnd);
-                
                 let midTimeHtml = metrics.timeText ? `<div class="day-mid-time">${metrics.timeText.replace(' ', '')}</div>` : `<div class="day-mid-time" style="visibility:hidden;">-</div>`;
 
                 let mealIconsStr = "";
                 if (metrics.breakfast > 0) mealIconsStr += "☕"; 
                 if (metrics.lunch > 0) mealIconsStr += "🍱"; 
 
-                let bottomInfoHtml = `
+                dayCell.innerHTML = `
+                    <div class="day-top-row"><span class="num">${day}</span>${displayTag}</div>
+                    ${midTimeHtml}
                     <div class="day-bottom-row">
                         ${mealIconsStr ? `<span class="mini-meal">${mealIconsStr}</span>` : ''}
                         ${isSuk ? `<span class="mini-duty-badge">숙</span>` : ''}
                         ${isIl ? `<span class="mini-duty-badge">일</span>` : ''}
                     </div>
-                `;
-
-                dayCell.innerHTML = `
-                    <div class="day-top-row">
-                        <span class="num">${day}</span>
-                        ${displayTag}
-                    </div>
-                    ${midTimeHtml}
-                    ${bottomInfoHtml}
                 `;
 
                 dayCell.addEventListener('click', () => openTimeModal(dateStr, day, dayOfWeek, isHoli));
@@ -650,13 +622,9 @@
             const prefix = `${year}-${String(monthIdx + 1).padStart(2, '0')}`;
             const totalDays = new Date(year, monthIdx + 1, 0).getDate();
 
-            let actualOvertimeMins = 0;   
-            let predictedOvertimeMins = 0;
-            let fullMonthHolidayCount = 0; 
-
+            let actualOvertimeMins = 0; let predictedOvertimeMins = 0; let fullMonthHolidayCount = 0; 
             let bf1Count = 0; let bf2Count = 0; let rawLunchCount = 0;
             let countNormal = 0; let countHolidayWork = 0; let countHuumu = 0;
-
             const currentRates = gradeRates[userGrade] || gradeRates["9"];
 
             for (let d = 1; d <= totalDays; d++) {
@@ -666,75 +634,43 @@
 
                 let currentType = getBaseWorkType(year, monthIdx, d, dayOfWeek, isHoli);
                 let saved = attendanceData[dStr];
-
                 let startVal = saved ? saved.startTime : "";
                 let endVal = saved ? saved.endTime : "";
 
-                if (!saved) {
-                    if (currentType === '평일') { 
-                        startVal = (dayOfWeek === 5) ? "06:00" : globalConfig.startTime; 
-                        endVal = (dayOfWeek === 5) ? "15:00" : globalConfig.endTime; 
-                    }
+                if (!saved && currentType === '평일') { 
+                    startVal = (dayOfWeek === 5) ? "06:00" : globalConfig.startTime; 
+                    endVal = (dayOfWeek === 5) ? "15:00" : globalConfig.endTime; 
                 }
 
                 let metrics = parseDailySheet(dStr, currentType, startVal, endVal);
-                const loopDate = new Date(year, monthIdx, d);
-                
-                const isPastOrToday = (loopDate <= todayMidnight);
-
-                if (saved || isPastOrToday) {
+                if (saved || new Date(year, monthIdx, d) <= todayMidnight) {
                     actualOvertimeMins += metrics.overtimeMins; 
+                    if (d <= 15) bf1Count += metrics.breakfast; else bf2Count += metrics.breakfast;
+                    rawLunchCount += metrics.lunch;
+                    if (currentType === '휴일근무') fullMonthHolidayCount++;
                 }
                 predictedOvertimeMins += metrics.overtimeMins;
                 
-                if (currentType === '휴일근무') {
-                    if (saved || isPastOrToday) {
-                        fullMonthHolidayCount++;
-                    }
-                }
-
-                if (saved || isPastOrToday) {
-                    if (d <= 15) bf1Count += metrics.breakfast;
-                    else bf2Count += metrics.breakfast;
-                    rawLunchCount += metrics.lunch;
-                }
-
-                if (currentType === '평일' || ['조퇴', '지각', '오전', '오후'].includes(currentType)) {
-                    countNormal++;
-                } else if (currentType === '휴일근무') {
-                    countHolidayWork++;
-                } else if (['휴무', '연가', '대휴', '특가', '공가'].includes(currentType)) {
-                    countHuumu++;
-                }
+                if (currentType === '평일' || ['조퇴', '지각', '오전', '오후'].includes(currentType)) countNormal++;
+                else if (currentType === '휴일근무') countHolidayWork++;
+                else if (['휴무', '연가', '대휴', '특가', '공가'].includes(currentType)) countHuumu++;
             }
 
-            const h = Math.floor(actualOvertimeMins / 60);
-            const m = actualOvertimeMins % 60;
-            document.getElementById('dash-total-overtime').textContent = `${h}H ${String(m).padStart(2, '0')}M`;
-
-            const ph = Math.floor(predictedOvertimeMins / 60);
-            const pm = Math.floor(predictedOvertimeMins % 60);
-            document.getElementById('dash-predicted-overtime').textContent = `(예상 ${ph}h${String(pm).padStart(2, '0')}m)`;
-            
+            document.getElementById('dash-total-overtime').textContent = `${Math.floor(actualOvertimeMins / 60)}H ${String(actualOvertimeMins % 60).padStart(2, '0')}M`;
+            document.getElementById('dash-predicted-overtime').textContent = `(예상 ${Math.floor(predictedOvertimeMins / 60)}h${String(predictedOvertimeMins % 60).padStart(2, '0')}m)`;
             document.getElementById('dash-breakfast-count').textContent = bf1Count + bf2Count;
             document.getElementById('dash-lunch-count').textContent = rawLunchCount; 
-
-            document.getElementById('dash-day-distribution').innerHTML = `
-                평일 ${countNormal}<span class="dot-split"> </span>휴일 ${countHolidayWork}<span class="dot-split"> </span>휴무 ${countHuumu}
-            `;
+            document.getElementById('dash-day-distribution').innerHTML = `평일 ${countNormal}<span class="dot-split"> </span>휴일 ${countHolidayWork}<span class="dot-split"> </span>휴무 ${countHuumu}`;
 
             let limitedOvertimeMins = Math.min(actualOvertimeMins, 50 * 60);
-            const lh = Math.floor(limitedOvertimeMins / 60);
-            document.getElementById('rep-actual-overtime').textContent = `${h}H ${String(m).padStart(2, '0')}M (인정: ${lh}H)`;
-
+            let lh = Math.floor(limitedOvertimeMins / 60);
+            document.getElementById('rep-actual-overtime').textContent = `${Math.floor(actualOvertimeMins / 60)}H ${String(actualOvertimeMins % 60).padStart(2, '0')}M (인정: ${lh}H)`;
             document.getElementById('rep-hourly-rate').textContent = `${currentRates.hourly.toLocaleString()}원`;
-            let overtimeSalary = Math.floor(((lh + 10) * currentRates.hourly) / 10) * 10;
-            document.getElementById('rep-overtime-amount').textContent = `${overtimeSalary.toLocaleString()}원`;
+            document.getElementById('rep-overtime-amount').textContent = `${(Math.floor(((lh + 10) * currentRates.hourly) / 10) * 10).toLocaleString()}원`;
 
             document.getElementById('rep-holiday-rate').textContent = `${currentRates.holiday.toLocaleString()}원`;
-            let holidaySalary = Math.floor((fullMonthHolidayCount * currentRates.holiday) / 10) * 10;
             document.getElementById('rep-holiday-count').textContent = `${fullMonthHolidayCount}일`;
-            document.getElementById('rep-holiday-amount').textContent = `${holidaySalary.toLocaleString()}원`;
+            document.getElementById('rep-holiday-amount').textContent = `${(Math.floor((fullMonthHolidayCount * currentRates.holiday) / 10) * 10).toLocaleString()}원`;
 
             let limitedLunchCount = Math.min(rawLunchCount, 20);
             document.getElementById('rep-bf1-val').textContent = `${bf1Count}개 = ${(bf1Count * 9000).toLocaleString()}원`;
@@ -742,59 +678,9 @@
             document.getElementById('rep-lunch-val').textContent = `${limitedLunchCount}개 (원천: ${rawLunchCount}개) = ${(limitedLunchCount * 9000).toLocaleString()}원`;
         }
 
-        function exportToCsv() {
-            const year = currentDate.getFullYear();
-            const monthIdx = currentDate.getMonth();
-            const prefix = `${year}-${String(monthIdx + 1).padStart(2, '0')}`;
-            const totalDays = new Date(year, monthIdx + 1, 0).getDate();
-
-            let csvContent = "\uFEFF";
-            csvContent += "날짜,근무형태,출근시간,퇴근시간,실적정산시간,조식(여부),급량비(여부),숙직,일직\n";
-
-            for (let d = 1; d <= totalDays; d++) {
-                const dStr = `${prefix}-${String(d).padStart(2, '0')}`;
-                const dayOfWeek = new Date(year, monthIdx, d).getDay();
-                const isHoli = isLegalHoliday(year, monthIdx, d);
-                const dayLabels = ['일','월','화','수','목','금','토'];
-
-                let currentType = getBaseWorkType(year, monthIdx, d, dayOfWeek, isHoli);
-                let saved = attendanceData[dStr];
-
-                let startVal = saved ? saved.startTime : "";
-                let endVal = saved ? saved.endTime : "";
-                let isSuk = saved && saved.isSukjik ? "O" : "X";
-                let isIl = saved && saved.isIljik ? "O" : "X";
-
-                if (!saved) {
-                    if (currentType === '평일') { 
-                        startVal = (dayOfWeek === 5) ? "06:00" : globalConfig.startTime; 
-                        endVal = (dayOfWeek === 5) ? "15:00" : globalConfig.endTime; 
-                    }
-                }
-
-                let metrics = parseDailySheet(dStr, currentType, startVal, endVal);
-                let timeTxt = metrics.timeText ? metrics.timeText : "0H 00M";
-                let bfTxt = metrics.breakfast > 0 ? "1" : "0";
-                let lunchTxt = metrics.lunch > 0 ? "1" : "0";
-
-                csvContent += `${d}일(${dayLabels[dayOfWeek]}),${currentType},${startVal || "-"},${endVal || "-"},${timeTxt},${bfTxt},${lunchTxt},${isSuk},${isIl}\n`;
-            }
-
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement("a");
-            const url = URL.createObjectURL(blob);
-            link.setAttribute("href", url);
-            link.setAttribute("download", `근무내역_정산_${year}년_${monthIdx+1}월.csv`);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-
         function openConfigListModal() {
             const injector = document.getElementById('config-rows-injector');
             injector.innerHTML = '';
-
             const year = currentDate.getFullYear();
             const monthIdx = currentDate.getMonth();
             const prefix = `${year}-${String(monthIdx + 1).padStart(2, '0')}`;
@@ -813,10 +699,8 @@
 
                 const row = document.createElement('div');
                 row.classList.add('config-row');
-                
                 let textColor = "var(--text-main)";
-                if(dayOfWeek===0 || isHoli) textColor = "#ff4a4a";
-                if(dayOfWeek===6) textColor = "#4a90e2";
+                if(dayOfWeek===0 || isHoli) textColor = "#ff4a4a"; else if(dayOfWeek===6) textColor = "#4a90e2";
 
                 row.innerHTML = `
                     <div class="config-date-label" style="color: ${textColor};">${d}일(${weekdaysText[dayOfWeek]})</div>
@@ -834,57 +718,35 @@
                         </select>
                     </div>
                     <div class="config-duty-checkboxes">
-                        <label class="config-check-lbl"><input type="checkbox" class="suk-chk" data-date="${dStr}" ${isSuk?'checked':''}> 숙직</label>
-                        <label class="config-check-lbl"><input type="checkbox" class="il-chk" data-date="${dStr}" ${isIl?'checked':''}> 일직</label>
+                        <label class="config-check-lbl"><input type="checkbox" class="suk-chk" data-date="${dStr}" ${isSuk?'checked':''}> 숙</label>
+                        <label class="config-check-lbl"><input type="checkbox" class="il-chk" data-date="${dStr}" ${isIl?'checked':''}> 일</label>
                     </div>
                 `;
 
                 row.querySelector('.config-select').addEventListener('change', (e) => {
-                    const targetDate = e.target.dataset.date;
-                    const nextType = e.target.value;
-                    initDayContainer(targetDate);
-                    attendanceData[targetDate].workType = nextType;
-                    
-                    let targetDayOfWeek = new Date(targetDate.split('-')[0], targetDate.split('-')[1]-1, targetDate.split('-')[2]).getDay();
-
-                    if (nextType === '평일') { 
-                        attendanceData[targetDate].startTime = (targetDayOfWeek === 5) ? "06:00" : globalConfig.startTime; 
-                        attendanceData[targetDate].endTime = (targetDayOfWeek === 5) ? "15:00" : globalConfig.endTime; 
-                    }
-                    else if (nextType === '휴일근무') { attendanceData[targetDate].startTime = ""; attendanceData[targetDate].endTime = ""; }
-                    else if (nextType === '조퇴') { attendanceData[targetDate].startTime = "06:00"; attendanceData[targetDate].endTime = "12:00"; }
-                    
-                    syncAndRefresh(targetDate);
+                    initDayContainer(dStr);
+                    attendanceData[dStr].workType = e.target.value;
+                    if (e.target.value === '평일') { 
+                        attendanceData[dStr].startTime = (dayOfWeek === 5) ? "06:00" : globalConfig.startTime; 
+                        attendanceData[dStr].endTime = (dayOfWeek === 5) ? "15:00" : globalConfig.endTime; 
+                    } else if (e.target.value === '휴일근무') { attendanceData[dStr].startTime = ""; attendanceData[dStr].endTime = ""; }
+                    syncAndRefresh(dStr);
                 });
 
-                row.querySelector('.suk-chk').addEventListener('change', (e) => {
-                    const targetDate = e.target.dataset.date;
-                    initDayContainer(targetDate, activeType); 
-                    attendanceData[targetDate].isSukjik = e.target.checked;
-                    syncAndRefresh(targetDate);
-                });
-
-                row.querySelector('.il-chk').addEventListener('change', (e) => {
-                    const targetDate = e.target.dataset.date;
-                    initDayContainer(targetDate, activeType);
-                    attendanceData[targetDate].isIljik = e.target.checked;
-                    syncAndRefresh(targetDate);
-                });
-
+                row.querySelector('.suk-chk').addEventListener('change', (e) => { initDayContainer(dStr, activeType); attendanceData[dStr].isSukjik = e.target.checked; syncAndRefresh(dStr); });
+                row.querySelector('.il-chk').addEventListener('change', (e) => { initDayContainer(dStr, activeType); attendanceData[dStr].isIljik = e.target.checked; syncAndRefresh(dStr); });
                 injector.appendChild(row);
             }
-
             configListModal.classList.add('open');
         }
 
         function initDayContainer(dateStr, fallbackType = "평일") {
             if (!attendanceData[dateStr]) {
                 let targetDayOfWeek = new Date(dateStr.split('-')[0], dateStr.split('-')[1]-1, dateStr.split('-')[2]).getDay();
-                let isFri = (targetDayOfWeek === 5 && fallbackType === "평일");
                 attendanceData[dateStr] = {
                     workType: fallbackType, 
-                    startTime: isFri ? "06:00" : (fallbackType === "평일" ? globalConfig.startTime : ""), 
-                    endTime: isFri ? "15:00" : (fallbackType === "평일" ? globalConfig.endTime : ""),
+                    startTime: (targetDayOfWeek === 5 && fallbackType === "평일") ? "06:00" : (fallbackType === "평일" ? globalConfig.startTime : ""), 
+                    endTime: (targetDayOfWeek === 5 && fallbackType === "평일") ? "15:00" : (fallbackType === "평일" ? globalConfig.endTime : ""),
                     isSukjik: false, isIljik: false, overtimeMins: 0, breakfast: 0, lunch: 0
                 };
             }
@@ -893,36 +755,21 @@
         function syncAndRefresh(dateStr) {
             let item = attendanceData[dateStr];
             let res = parseDailySheet(dateStr, item.workType, item.startTime, item.endTime);
-            item.overtimeMins = res.overtimeMins;
-            item.breakfast = res.breakfast;
-            item.lunch = res.lunch;
-            item.overtimeText = res.timeText;
-
+            item.overtimeMins = res.overtimeMins; item.breakfast = res.breakfast; item.lunch = res.lunch; item.overtimeText = res.timeText;
             localStorage.setItem('overtime_data_v9_4', JSON.stringify(attendanceData));
-            renderCalendar();
-            updateDashboard();
-            
-            // 변경 내역 구글에 즉시 저장 연동
+            renderCalendar(); updateDashboard();
             sendDataToGoogleSheets(dateStr, item);
         }
 
         function openTimeModal(dateStr, dayNum, dayOfWeek, isHoli) {
             selectedDateStr = dateStr;
-            const weekdaysText = ['일', '월', '화', '수', '목', '금', '토'];
-
             document.getElementById('modal-date-day').textContent = dayNum;
             document.getElementById('modal-date-month-year').textContent = `${currentDate.getMonth() + 1}월`;
-            document.getElementById('modal-date-weekday').textContent = weekdaysText[dayOfWeek];
+            document.getElementById('modal-date-weekday').textContent = ['일', '월', '화', '수', '목', '금', '토'][dayOfWeek];
 
             let saved = attendanceData[dateStr];
-            if (saved) {
-                modalWorkTypeSelect.value = saved.workType;
-                applyTimeInputRules(saved.workType, dateStr);
-            } else {
-                modalWorkTypeSelect.value = getBaseWorkType(currentDate.getFullYear(), currentDate.getMonth(), dayNum, dayOfWeek, isHoli);
-                applyTimeInputRules(modalWorkTypeSelect.value, dateStr);
-            }
-
+            modalWorkTypeSelect.value = saved ? saved.workType : getBaseWorkType(currentDate.getFullYear(), currentDate.getMonth(), dayNum, dayOfWeek, isHoli);
+            applyTimeInputRules(modalWorkTypeSelect.value, dateStr);
             updateModalLivePreview();
             timeModal.classList.add('open');
         }
@@ -936,130 +783,45 @@
         function setupEventListeners() {
             document.getElementById('trigger-report-popup').addEventListener('click', () => reportModal.classList.add('open'));
             document.getElementById('trigger-config-popup').addEventListener('click', () => openConfigListModal());
-            
             document.getElementById('close-report-modal').addEventListener('click', () => reportModal.classList.remove('open'));
             document.getElementById('close-config-modal').addEventListener('click', () => configListModal.classList.remove('open'));
+            document.getElementById('close-time-modal').addEventListener('click', () => timeModal.classList.remove('open'));
 
             currentMonthDisplay.addEventListener('click', () => {
                 currentDate = new Date(systemToday.getFullYear(), systemToday.getMonth(), 1);
-                renderCalendar();
-                updateDashboard();
+                renderCalendar(); updateDashboard();
             });
 
-            document.getElementById('btn-export-excel').addEventListener('click', exportToCsv);
+            themeSelector.addEventListener('change', (e) => { currentTheme = e.target.value; document.documentElement.setAttribute('data-theme', currentTheme); localStorage.setItem('app_theme_v9_4', currentTheme); });
+            gradeSelector.addEventListener('change', (e) => { userGrade = e.target.value; localStorage.setItem('user_grade_v9_4', userGrade); updateDashboard(); });
 
-            themeSelector.addEventListener('change', (e) => {
-                currentTheme = e.target.value;
-                document.documentElement.setAttribute('data-theme', currentTheme);
-                localStorage.setItem('app_theme_v9_4', currentTheme);
-            });
+            modalWorkTypeSelect.addEventListener('change', (e) => { applyTimeInputRules(e.target.value, selectedDateStr); updateModalLivePreview(); });
+            [startTimeInput, endTimeInput].forEach(inp => inp.addEventListener('input', () => updateModalLivePreview()));
 
-            gradeSelector.addEventListener('change', (e) => {
-                userGrade = e.target.value;
-                localStorage.setItem('user_grade_v9_4', userGrade);
-                updateDashboard();
-            });
-
-            document.getElementById('btn-save-global-cfg').addEventListener('click', () => {
-                const s = document.getElementById('global-cfg-start').value;
-                const e = document.getElementById('global-cfg-end').value;
-                if(!s || !e) { alert("출퇴근 시간을 올바르게 넣어주세요."); return; }
-                
-                globalConfig.startTime = s;
-                globalConfig.endTime = e;
-                localStorage.setItem('global_work_config_v9_4', JSON.stringify(globalConfig));
-                
-                alert("내일부터의 평일 기본 근무시간 설정이 변경되었습니다.");
-                renderCalendar();
-                updateDashboard();
-            });
-
-            modalWorkTypeSelect.addEventListener('change', (e) => {
-                applyTimeInputRules(e.target.value, selectedDateStr);
-                updateModalLivePreview();
-            });
-            [startTimeInput, endTimeInput].forEach(inp => {
-                inp.addEventListener('input', () => updateModalLivePreview());
-            });
-
-            document.getElementById('close-time-modal').addEventListener('click', () => timeModal.classList.remove('open'));
-
-            // 리셋(삭제) 동작 시 구글 시트에도 리셋 데이터 전송
             document.getElementById('btn-clear').addEventListener('click', () => {
-                let heldSuk = false;
-                let heldIl = false;
-                
-                if (attendanceData[selectedDateStr]) {
-                    heldSuk = attendanceData[selectedDateStr].isSukjik || false;
-                    heldIl = attendanceData[selectedDateStr].isIljik || false;
-                    delete attendanceData[selectedDateStr];
-                }
-                
-                if(heldSuk || heldIl) {
-                    let targetDayOfWeek = new Date(selectedDateStr.split('-')[0], selectedDateStr.split('-')[1]-1, selectedDateStr.split('-')[2]).getDay();
-                    attendanceData[selectedDateStr] = {
-                        workType: "평일", 
-                        startTime: (targetDayOfWeek===5)?"06:00":globalConfig.startTime, 
-                        endTime: (targetDayOfWeek===5)?"15:00":globalConfig.endTime,
-                        isSukjik: heldSuk, isIljik: heldIl, overtimeMins: 0, breakfast: 0, lunch: 0
-                    };
-                    sendDataToGoogleSheets(selectedDateStr, attendanceData[selectedDateStr]);
-                } else {
-                    sendDataToGoogleSheets(selectedDateStr, null);
-                }
-                
+                if (attendanceData[selectedDateStr]) { delete attendanceData[selectedDateStr]; }
+                sendDataToGoogleSheets(selectedDateStr, null);
                 localStorage.setItem('overtime_data_v9_4', JSON.stringify(attendanceData));
-                timeModal.classList.remove('open');
-                renderCalendar();
-                updateDashboard();
+                timeModal.classList.remove('open'); renderCalendar(); updateDashboard();
             });
 
-            // 개별 수정 후 변경 저장 버튼 누를 때 구글에 즉시 전송
             document.getElementById('time-form').addEventListener('submit', (e) => {
                 e.preventDefault();
                 let res = parseDailySheet(selectedDateStr, modalWorkTypeSelect.value, startTimeInput.value, endTimeInput.value);
-                
-                let prevSuk = false; let prevIl = false;
-                if(attendanceData[selectedDateStr]) {
-                    prevSuk = attendanceData[selectedDateStr].isSukjik || false;
-                    prevIl = attendanceData[selectedDateStr].isIljik || false;
-                }
+                let prevSuk = attendanceData[selectedDateStr] ? attendanceData[selectedDateStr].isSukjik : false;
+                let prevIl = attendanceData[selectedDateStr] ? attendanceData[selectedDateStr].isIljik : false;
 
                 attendanceData[selectedDateStr] = {
-                    workType: modalWorkTypeSelect.value,
-                    startTime: startTimeInput.value,
-                    endTime: endTimeInput.value,
-                    isSukjik: prevSuk,
-                    isIljik: prevIl,
-                    overtimeText: res.timeText,
-                    overtimeMins: res.overtimeMins,
-                    breakfast: res.breakfast,
-                    lunch: res.lunch
+                    workType: modalWorkTypeSelect.value, startTime: startTimeInput.value, endTime: endTimeInput.value,
+                    isSukjik: prevSuk, isIljik: prevIl, overtimeText: res.timeText, overtimeMins: res.overtimeMins, breakfast: res.breakfast, lunch: res.lunch
                 };
-
                 localStorage.setItem('overtime_data_v9_4', JSON.stringify(attendanceData));
-                timeModal.classList.remove('open');
-                renderCalendar();
-                updateDashboard();
-                
-                // 구글 시트로 데이터 날려주기
+                timeModal.classList.remove('open'); renderCalendar(); updateDashboard();
                 sendDataToGoogleSheets(selectedDateStr, attendanceData[selectedDateStr]);
             });
 
-            document.getElementById('prev-month').addEventListener('click', () => {
-                if (currentDate.getFullYear() === 2026 && currentDate.getMonth() === 5) {
-                    alert("2026년 06월 이전으로는 이동할 수 없습니다.");
-                    return;
-                }
-                currentDate.setMonth(currentDate.getMonth() - 1);
-                renderCalendar();
-                updateDashboard();
-            });
-            document.getElementById('next-month').addEventListener('click', () => {
-                currentDate.setMonth(currentDate.getMonth() + 1);
-                renderCalendar();
-                updateDashboard();
-            });
+            document.getElementById('prev-month').addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth() - 1); renderCalendar(); updateDashboard(); });
+            document.getElementById('next-month').addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth() + 1); renderCalendar(); updateDashboard(); });
         }
     </script>
 </body>
