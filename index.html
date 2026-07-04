@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
     
-    <title>근무관리 v0.9</title>
+    <title>근무관리 v0.91</title>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
     <style>
         :root {
@@ -91,7 +91,6 @@
         .day-cell.empty { background-color: transparent; cursor: default; border: none; }
         .day-cell.today-match { border: 2px solid var(--accent-color) !important; box-shadow: 0 0 4px rgba(0, 240, 255, 0.2); }
 
-        /* 가시성 설정: 미래 날짜에서 '예상 수치'만 톤다운, 스케줄은 100% 선명도 유지 */
         .day-cell.future-day .day-mid-time,
         .day-cell.future-day .mini-meal {
             opacity: 0.35 !important;
@@ -370,9 +369,7 @@
         const systemToday = new Date(); 
         let currentDate = new Date(systemToday.getFullYear(), systemToday.getMonth(), 1); 
         
-        // 1. 초기화 방지 핵심: 로컬 캐시를 최우선으로 확실하게 로딩
         let attendanceData = JSON.parse(localStorage.getItem('overtime_data_v0.9')) || {};
-        // 하위 호환성 체크 (이전 버전에 데이터가 있다면 가져옴)
         if (Object.keys(attendanceData).length === 0) {
             attendanceData = JSON.parse(localStorage.getItem('overtime_data_v0.81')) || {};
         }
@@ -415,43 +412,45 @@
             document.getElementById('global-cfg-start').value = globalConfig.startTime;
             document.getElementById('global-cfg-end').value = globalConfig.endTime;
             
-            // 새로고침 시 화면이 비어있지 않도록 즉시 로컬 캐시 데이터로 렌더링
             renderCalendar();
             updateDashboard();
 
-            // 백그라운드에서 안전하게 구글 최신 데이터 호출
             fetchDataFromGoogleSheets();
             setupEventListeners();
             setupSwipeGestures();
         }
 
-        // 🛠️ 비동기 통신 오류 및 초기화 현상 수정완료 함수
+        // 📲 모바일 브라우저 캐시 무시형 강제 데이터 조회 로직 (스마트폰 반영 핵심 해결책)
         function fetchDataFromGoogleSheets() {
-            showToast("구글 데이터 연동 중... 🔄");
-            const requestUrl = `${SCRIPT_URL}?action=read&_ts=${Date.now()}`;
+            showToast("최신 정보 가져오는 중... 🔄");
             
-            fetch(requestUrl)
+            // 모바일 브라우저가 똑같은 URL을 캐싱하지 못하게 주소에 완벽한 난수 타임스탬프를 심어 강제 호출
+            const cacheBuster = Date.now();
+            const requestUrl = `${SCRIPT_URL}?action=read&nocache=${cacheBuster}&_ts=${cacheBuster}`;
+            
+            fetch(requestUrl, {
+                method: 'GET',
+                headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' } // 헤더 단에서도 캐싱 차단
+            })
             .then(res => {
-                if (!res.ok) throw new Error("네트워크 응답 불안정");
+                if (!res.ok) throw new Error("네트워크 지연");
                 return res.json();
             })
             .then(data => {
-                // 가져온 데이터가 정상적인 객체인 경우에만 기존 로컬 데이터와 안전하게 병합(Merge) 처리
                 if (data && typeof data === 'object' && Object.keys(data).length > 0) {
-                    // 구글 데이터로 덮어쓰되, 로컬에만 있는 데이터 유실 방지를 위해 병합
+                    // 구글 데이터로 갱신하되 기기 자체 데이터 유실 방지를 위한 양방향 안전 병합
                     attendanceData = Object.assign({}, attendanceData, data);
                     localStorage.setItem('overtime_data_v0.9', JSON.stringify(attendanceData));
-                    showToast("최신 데이터 동기화 완료 ✅", 1200);
+                    showToast("스마트폰 동기화 완료! ✅", 1200);
                 } else {
-                    showToast("연동 성공 (입력된 데이터 유지)", 1200);
+                    showToast("동기화 확인됨 (데이터 최신 상태)", 1200);
                 }
                 renderCalendar();
                 updateDashboard();
             })
             .catch(err => {
-                console.error("구글 불러오기 실패:", err);
-                // 중요: 통신 실패 시 초기화하지 않고 현재 화면 데이터 완전 보존
-                showToast("구글 조회 실패 (안전하게 로컬 데이터 보존 💾)", 2000);
+                console.error("구글 연동 실패:", err);
+                showToast("통신 불안정 (로컬 데이터 보존 💾)", 2000);
                 renderCalendar();
                 updateDashboard();
             });
@@ -912,6 +911,8 @@
             currentDate = nextMonth;
             renderCalendar();
             updateDashboard();
+            // 달력 이동할 때도 새로운 구글 시트 정보를 즉시 땡겨오도록 유도
+            fetchDataFromGoogleSheets();
         }
 
         function setupEventListeners() {
@@ -919,13 +920,13 @@
             document.getElementById('trigger-config-popup').addEventListener('click', () => openConfigListModal());
             document.getElementById('trigger-global-config').addEventListener('click', () => globalConfigModal.classList.add('open'));
             
-            document.getElementById('close-report-modal').addEventListener('click', () => reportModal.classList.remove('open'));
-            document.getElementById('close-config-modal').addEventListener('click', () => configListModal.classList.remove('open'));
-            document.getElementById('close-time-modal').addEventListener('click', () => timeModal.classList.remove('open'));
-            document.getElementById('close-global-modal').addEventListener('click', () => globalConfigModal.classList.remove('open'));
+            document.getElementById('close-report-modal').addEventListener('click', () => reportModal.remove('open'));
+            document.getElementById('close-config-modal').addEventListener('click', () => configListModal.remove('open'));
+            document.getElementById('close-time-modal').addEventListener('click', () => timeModal.remove('open'));
+            document.getElementById('close-global-modal').addEventListener('click', () => globalConfigModal.remove('open'));
 
+            // 상단 타이틀 "근무관리"나 "연도월" 클릭 시 스마트폰에서 강제로 구글 시트 데이터 다시 땡겨오기 단축키 역할 수행
             currentMonthDisplay.addEventListener('click', () => {
-                currentDate = new Date(systemToday.getFullYear(), systemToday.getMonth(), 1);
                 fetchDataFromGoogleSheets();
             });
 
