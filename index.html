@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
     
-    <title>근무관리 v0.92</title>
+    <title>근무관리 v0.95</title>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
     <style>
         :root {
@@ -180,7 +180,7 @@
             <div class="app-title" id="trigger-global-config" title="환경설정 열기">근무관리 <span class="material-symbols-outlined" style="font-size:0.9rem;">settings</span></div>
             <div class="month-selector">
                 <span class="material-symbols-outlined arrow" id="prev-month">chevron_left</span>
-                <h2 id="current-month-display" title="오늘 날짜로 이동">2026년 07월</h2>
+                <h2 id="current-month-display" title="오늘 날짜로 복귀">2026년 07월</h2>
                 <span class="material-symbols-outlined arrow" id="next-month">chevron_right</span>
             </div>
         </header>
@@ -364,15 +364,14 @@
     <div id="sync-toast" class="sync-toast">구글 스프레드시트 동기화 중...</div>
 
     <script>
+        // 구글 주소 유지 (백업 전용)
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxjdmsg7U81v9xK4X1HUWHQ2b9cU0bl9gM2CcW-NmY6u8t5SSPe_rQvut2-DhHNOFtObQ/exec";
 
         const systemToday = new Date(); 
         let currentDate = new Date(systemToday.getFullYear(), systemToday.getMonth(), 1); 
         
+        // 로컬 데이터 안전 로드
         let attendanceData = JSON.parse(localStorage.getItem('overtime_data_v0.9')) || {};
-        if (Object.keys(attendanceData).length === 0) {
-            attendanceData = JSON.parse(localStorage.getItem('overtime_data_v0.81')) || {};
-        }
         
         let globalConfig = JSON.parse(localStorage.getItem('global_work_config_v0.9')) || { startTime: "04:10", endTime: "16:10" };
         let currentTheme = localStorage.getItem('app_theme_v0.9') || 'dark';
@@ -412,50 +411,17 @@
             document.getElementById('global-cfg-start').value = globalConfig.startTime;
             document.getElementById('global-cfg-end').value = globalConfig.endTime;
             
+            // 구글 로드 로직 제거 -> 즉시 폰 데이터로 달력 구현
             renderCalendar();
             updateDashboard();
 
-            fetchDataFromGoogleSheets();
             setupEventListeners();
             setupSwipeGestures();
         }
 
-        function fetchDataFromGoogleSheets() {
-            showToast("최신 정보 가져오는 중... 🔄");
-            
-            const cacheBuster = Date.now();
-            const requestUrl = `${SCRIPT_URL}?action=read&nocache=${cacheBuster}&_ts=${cacheBuster}`;
-            
-            fetch(requestUrl, {
-                method: 'GET',
-                headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
-            })
-            .then(res => {
-                if (!res.ok) throw new Error("네트워크 지연");
-                return res.json();
-            })
-            .then(data => {
-                if (data && typeof data === 'object' && Object.keys(data).length > 0) {
-                    attendanceData = Object.assign({}, attendanceData, data);
-                    localStorage.setItem('overtime_data_v0.9', JSON.stringify(attendanceData));
-                    showToast("스마트폰 동기화 완료! ✅", 1200);
-                } else {
-                    showToast("동기화 확인됨 (데이터 최신 상태)", 1200);
-                }
-                renderCalendar();
-                updateDashboard();
-            })
-            .catch(err => {
-                console.error("구글 연동 실패:", err);
-                // 🚨 에러가 발생해도 로컬 데이터 기반으로 무조건 달력을 안전하게 그려 끊김 현상 제거
-                showToast("통신 불안정 (로컬 데이터 전환 💾)", 2000);
-                renderCalendar();
-                updateDashboard();
-            });
-        }
-
+        // 백그라운드 구글 백업 전송 기능 (앱 정지/딜레이 없음)
         function sendDataToGoogleSheets(dateStr, itemData) {
-            showToast("구글 스프레드시트에 저장 중...");
+            showToast("구글 시트에 백업 중... 💾");
             
             const payload = {
                 date: dateStr,
@@ -475,10 +441,10 @@
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
             })
-            .then(() => { showToast("구글 서버 저장 완료! ✅", 1200); })
+            .then(() => { showToast("구글 백업 완료! ✅", 1000); })
             .catch(err => {
                 console.error(err);
-                showToast("구글 저장 실패 ❌ (기기에 자동 임시저장됨)", 2000);
+                showToast("백업 보류 (기기에 안전하게 보존됨)", 1500);
             });
         }
 
@@ -860,8 +826,10 @@
 
         function syncAndRefresh(dateStr) {
             let item = attendanceData[dateStr];
-            let res = parseDailySheet(dateStr, item.workType, item.startTime, item.endTime);
-            item.overtimeMins = res.overtimeMins; item.breakfast = res.breakfast; item.lunch = res.lunch; item.overtimeText = res.timeText;
+            if (item) {
+                let res = parseDailySheet(dateStr, item.workType, item.startTime, item.endTime);
+                item.overtimeMins = res.overtimeMins; item.breakfast = res.breakfast; item.lunch = res.lunch; item.overtimeText = res.timeText;
+            }
             localStorage.setItem('overtime_data_v0.9', JSON.stringify(attendanceData));
             renderCalendar(); updateDashboard();
             sendDataToGoogleSheets(dateStr, item);
@@ -886,6 +854,7 @@
             document.getElementById('preview-meals').textContent = `조식 ${res.breakfast} / 급량 ${res.lunch}`;
         }
 
+        // 스와이프 기능 (구글 서버 조회 없이 오직 화면만 빠르게 전환)
         function setupSwipeGestures() {
             const zone = document.getElementById('calendar-swipe-zone');
             let touchStartX = 0; let touchEndX = 0;
@@ -909,7 +878,6 @@
             currentDate = nextMonth;
             renderCalendar();
             updateDashboard();
-            fetchDataFromGoogleSheets();
         }
 
         function setupEventListeners() {
@@ -922,12 +890,11 @@
             document.getElementById('close-time-modal').addEventListener('click', () => timeModal.classList.remove('open'));
             document.getElementById('close-global-modal').addEventListener('click', () => globalConfigModal.classList.remove('open'));
 
-            // 🎯 상단 날짜 클릭 시 강제 '오늘 날짜(2026년 7월)'로 즉시 복귀 및 화면 리렌더링
+            // 🎯 상단 중앙 날짜 터치 시 지연 없이 즉시 오늘 날짜 화면으로 순간이동
             currentMonthDisplay.addEventListener('click', () => {
                 currentDate = new Date(systemToday.getFullYear(), systemToday.getMonth(), 1);
                 renderCalendar();
                 updateDashboard();
-                fetchDataFromGoogleSheets();
             });
 
             document.getElementById('btn-save-global-settings').addEventListener('click', () => {
@@ -943,7 +910,7 @@
                 document.documentElement.setAttribute('data-theme', currentTheme);
                 
                 globalConfigModal.classList.remove('open');
-                showToast("환경설정이 성공적으로 저장되었습니다. ✨", 2000);
+                showToast("환경설정이 성공적으로 저장되었습니다. ✨", 1500);
                 renderCalendar();
                 updateDashboard();
             });
