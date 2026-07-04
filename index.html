@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
     
-    <title>근무관리 v0.91</title>
+    <title>근무관리 v0.92</title>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
     <style>
         :root {
@@ -54,7 +54,7 @@
         .app-title:hover { color: var(--accent-color); }
         .month-selector { display: flex; align-items: center; gap: 8px; }
         .month-selector h2 { font-size: 1rem; font-weight: 600; color: var(--text-white); cursor: pointer; padding: 2px 6px; border-radius: 6px; }
-        .month-selector h2:hover { background-color: var(--card-bg); }
+        .month-selector h2:hover { background-color: var(--card-bg); color: var(--accent-color); }
         .arrow { cursor: pointer; color: var(--text-muted); user-select: none; font-size: 1.2rem; }
         .arrow.disabled { opacity: 0.2; cursor: not-allowed; }
 
@@ -420,17 +420,15 @@
             setupSwipeGestures();
         }
 
-        // 📲 모바일 브라우저 캐시 무시형 강제 데이터 조회 로직 (스마트폰 반영 핵심 해결책)
         function fetchDataFromGoogleSheets() {
             showToast("최신 정보 가져오는 중... 🔄");
             
-            // 모바일 브라우저가 똑같은 URL을 캐싱하지 못하게 주소에 완벽한 난수 타임스탬프를 심어 강제 호출
             const cacheBuster = Date.now();
             const requestUrl = `${SCRIPT_URL}?action=read&nocache=${cacheBuster}&_ts=${cacheBuster}`;
             
             fetch(requestUrl, {
                 method: 'GET',
-                headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' } // 헤더 단에서도 캐싱 차단
+                headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
             })
             .then(res => {
                 if (!res.ok) throw new Error("네트워크 지연");
@@ -438,7 +436,6 @@
             })
             .then(data => {
                 if (data && typeof data === 'object' && Object.keys(data).length > 0) {
-                    // 구글 데이터로 갱신하되 기기 자체 데이터 유실 방지를 위한 양방향 안전 병합
                     attendanceData = Object.assign({}, attendanceData, data);
                     localStorage.setItem('overtime_data_v0.9', JSON.stringify(attendanceData));
                     showToast("스마트폰 동기화 완료! ✅", 1200);
@@ -450,7 +447,8 @@
             })
             .catch(err => {
                 console.error("구글 연동 실패:", err);
-                showToast("통신 불안정 (로컬 데이터 보존 💾)", 2000);
+                // 🚨 에러가 발생해도 로컬 데이터 기반으로 무조건 달력을 안전하게 그려 끊김 현상 제거
+                showToast("통신 불안정 (로컬 데이터 전환 💾)", 2000);
                 renderCalendar();
                 updateDashboard();
             });
@@ -911,7 +909,6 @@
             currentDate = nextMonth;
             renderCalendar();
             updateDashboard();
-            // 달력 이동할 때도 새로운 구글 시트 정보를 즉시 땡겨오도록 유도
             fetchDataFromGoogleSheets();
         }
 
@@ -920,13 +917,16 @@
             document.getElementById('trigger-config-popup').addEventListener('click', () => openConfigListModal());
             document.getElementById('trigger-global-config').addEventListener('click', () => globalConfigModal.classList.add('open'));
             
-            document.getElementById('close-report-modal').addEventListener('click', () => reportModal.remove('open'));
-            document.getElementById('close-config-modal').addEventListener('click', () => configListModal.remove('open'));
-            document.getElementById('close-time-modal').addEventListener('click', () => timeModal.remove('open'));
-            document.getElementById('close-global-modal').addEventListener('click', () => globalConfigModal.remove('open'));
+            document.getElementById('close-report-modal').addEventListener('click', () => reportModal.classList.remove('open'));
+            document.getElementById('close-config-modal').addEventListener('click', () => configListModal.classList.remove('open'));
+            document.getElementById('close-time-modal').addEventListener('click', () => timeModal.classList.remove('open'));
+            document.getElementById('close-global-modal').addEventListener('click', () => globalConfigModal.classList.remove('open'));
 
-            // 상단 타이틀 "근무관리"나 "연도월" 클릭 시 스마트폰에서 강제로 구글 시트 데이터 다시 땡겨오기 단축키 역할 수행
+            // 🎯 상단 날짜 클릭 시 강제 '오늘 날짜(2026년 7월)'로 즉시 복귀 및 화면 리렌더링
             currentMonthDisplay.addEventListener('click', () => {
+                currentDate = new Date(systemToday.getFullYear(), systemToday.getMonth(), 1);
+                renderCalendar();
+                updateDashboard();
                 fetchDataFromGoogleSheets();
             });
 
