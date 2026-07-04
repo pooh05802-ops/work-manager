@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
     
-    <title>근무관리 시스템 v9.8 (실시간 동기화)</title>
+    <title>근무관리 시스템 v9.9 (연동 버그 완벽 수정)</title>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
     <style>
         :root {
@@ -36,7 +36,6 @@
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         
-        /* 📱 세로 스크롤 절대 방지 및 모바일 꽉 찬 화면 설정 */
         html, body { height: 100%; overflow: hidden; background-color: var(--body-bg); color: var(--text-main); }
         body { display: flex; justify-content: center; align-items: center; padding: 0; transition: background-color 0.2s ease; }
         
@@ -72,13 +71,11 @@
         .summary-right-group { display: flex; align-items: center; cursor: pointer; font-size: 0.65rem; color: var(--text-main); font-weight: 500; }
         .dot-split { color: var(--accent-color); margin: 0 1px; }
 
-        /* 📅 달력 컨테이너 크기 최적화 (스크롤 제거 핵심) */
         .calendar-container { flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; }
         .weekdays { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 0.75rem; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; flex-shrink: 0; }
         .sunday { color: #ff4a4a; }
         .saturday { color: #4a90e2; }
 
-        /* 셀 최소 높이를 줄여서 6주가 들어가도 화면에 딱 맞춤 */
         .days-grid { display: grid; grid-template-columns: repeat(7, 1fr); grid-auto-rows: minmax(76px, 1fr); gap: 4px; flex-grow: 1; }
         .day-cell {
             background-color: var(--card-bg); border-radius: 8px; padding: 2px 1px;
@@ -88,7 +85,6 @@
         .day-cell.empty { background-color: transparent; cursor: default; border: none; }
         .day-cell.today-match { border: 2px solid var(--accent-color) !important; box-shadow: 0 0 4px rgba(0, 240, 255, 0.2); }
 
-        /* 오늘 이후 날짜 반투명 처리 */
         .day-cell.future-day .day-mid-time,
         .day-cell.future-day .mini-meal,
         .day-cell.future-day .mini-duty-badge {
@@ -116,7 +112,6 @@
         .mini-duty-badge { font-size: 0.55rem; padding: 0px 1px; border-radius: 2px; font-weight: bold; background-color: #ff4a4a; color: #fff; line-height: 1.1; }
         .mini-duty-badge.iljik { background-color: #4a90e2; }
 
-        /* 모달 스타일 및 애니메이션 생략(동일) */
         .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.8); display: flex; justify-content: center; align-items: center; padding: 12px; z-index: 999; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; }
         .modal-overlay.open { opacity: 1; pointer-events: auto; }
         .modal-content { background-color: var(--app-bg); border: 1px solid var(--border-color); width: 100%; max-width: 390px; border-radius: 16px; padding: 16px; max-height: 85vh; overflow-y: auto; }
@@ -343,9 +338,9 @@
     <div id="sync-toast" class="sync-toast">구글 스프레드시트 동기화 중...</div>
 
     <script>
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbypyn3yJwfoFuHvyLe0m6l8L0o_JuTnF_bM0Ya-hemXviZhJaFk1lWyVJwme2ZoQND1mw/exec";
+        // 💡 전달해주신 새 구글 웹앱 URL이 올바르게 적용되었습니다.
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxjdmsg7U81v9xK4X1HUWHQ2b9cU0bl9gM2CcW-NmY6u8t5SSPe_rQvut2-DhHNOFtObQ/exec";
 
-        // 시스템 오늘 날짜 고정 (2026년 7월 4일)
         const systemToday = new Date(2026, 6, 4); 
         let currentDate = new Date(2026, 6, 1); 
         
@@ -386,30 +381,33 @@
             document.getElementById('global-cfg-start').value = globalConfig.startTime;
             document.getElementById('global-cfg-end').value = globalConfig.endTime;
             
-            // 🔄 앱 실행 시 구글 서버로부터 최신 데이터를 땡겨옵니다 (양방향 동기화)
             fetchDataFromGoogleSheets();
             setupEventListeners();
         }
 
-        // 구글에서 전체 데이터 가져와 동기화하기 (PC-스마트폰 연동 핵심)
         function fetchDataFromGoogleSheets() {
             showToast("구글 데이터 연동 중... 🔄");
-            fetch(`${SCRIPT_URL}?action=read`)
-            .then(res => res.json())
+            const requestUrl = `${SCRIPT_URL}?action=read&_ts=${Date.now()}`;
+            
+            fetch(requestUrl)
+            .then(res => {
+                if (!res.ok) throw new Error("네트워크 응답 이상");
+                return res.json();
+            })
             .then(data => {
                 if (data && typeof data === 'object' && Object.keys(data).length > 0) {
                     attendanceData = data;
                     localStorage.setItem('overtime_data_v9_4', JSON.stringify(attendanceData));
                     showToast("최신 데이터 동기화 완료 ✅", 1500);
                 } else {
-                    showToast("구글에 저장된 데이터가 없습니다.", 1500);
+                    showToast("연동 성공 (서버 데이터 비어있음)", 1500);
                 }
                 renderCalendar();
                 updateDashboard();
             })
             .catch(err => {
                 console.error("데이터 로딩 실패:", err);
-                showToast("구글 동기화 실패 (로컬 데이터 표시)", 2000);
+                showToast("구글 동기화 실패 (로컬 데이터 유지)", 2000);
                 renderCalendar();
                 updateDashboard();
             });
@@ -432,14 +430,14 @@
 
             fetch(SCRIPT_URL, {
                 method: "POST",
-                mode: "no-cors",
+                mode: "no-cors", 
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
             })
             .then(() => { showToast("구글 서버 저장 완료! ✅", 1500); })
             .catch(err => {
                 console.error(err);
-                showToast("구글 동기화 실패 ❌", 2000);
+                showToast("구글 저장 실패 ❌", 2000);
             });
         }
 
@@ -669,7 +667,6 @@
 
                 let metrics = parseDailySheet(dStr, currentType, startVal, endVal);
                 
-                // 🛑 [핵심 수정]: 오늘(7월 4일)을 포함한 "이전 날짜"일 때만 실제 실적에 반영!
                 if (checkDate <= todayMidnight) {
                     actualOvertimeMins += metrics.overtimeMins; 
                     if (d <= 15) bf1Count += metrics.breakfast; else bf2Count += metrics.breakfast;
@@ -677,7 +674,6 @@
                     if (currentType === '휴일근무') fullMonthHolidayCount++;
                 }
                 
-                // 예상치는 오늘 이후 미래 날짜까지 전부 다 누적시킵니다.
                 predictedOvertimeMins += metrics.overtimeMins;
                 
                 if (currentType === '평일' || ['조퇴', '지각', '오전', '오후'].includes(currentType)) countNormal++;
@@ -685,14 +681,12 @@
                 else if (['휴무', '연가', '대휴', '특가', '공가'].includes(currentType)) countHuumu++;
             }
 
-            // 대시보드 디스플레이 업데이트
             document.getElementById('dash-total-overtime').textContent = `${Math.floor(actualOvertimeMins / 60)}H ${String(actualOvertimeMins % 60).padStart(2, '0')}M`;
             document.getElementById('dash-predicted-overtime').textContent = `(예상 ${Math.floor(predictedOvertimeMins / 60)}h${String(predictedOvertimeMins % 60).padStart(2, '0')}m)`;
             document.getElementById('dash-breakfast-count').textContent = bf1Count + bf2Count;
             document.getElementById('dash-lunch-count').textContent = rawLunchCount; 
             document.getElementById('dash-day-distribution').innerHTML = `평일 ${countNormal}<span class="dot-split"> </span>휴일 ${countHolidayWork}<span class="dot-split"> </span>휴무 ${countHuumu}`;
 
-            // 월간 정산 모달 뷰 데이터 매핑
             let limitedOvertimeMins = Math.min(actualOvertimeMins, 50 * 60);
             let lh = Math.floor(limitedOvertimeMins / 60);
             document.getElementById('rep-actual-overtime').textContent = `${Math.floor(actualOvertimeMins / 60)}H ${String(actualOvertimeMins % 60).padStart(2, '0')}M (인정: ${lh}H)`;
@@ -814,11 +808,10 @@
         function setupEventListeners() {
             document.getElementById('trigger-report-popup').addEventListener('click', () => reportModal.classList.add('open'));
             document.getElementById('trigger-config-popup').addEventListener('click', () => openConfigListModal());
-            document.getElementById('close-report-modal').addEventListener('click', () => reportModal.remove('open'));
-            document.getElementById('close-config-modal').addEventListener('click', () => configListModal.remove('open'));
-            document.getElementById('close-time-modal').addEventListener('click', () => timeModal.remove('open'));
+            document.getElementById('close-report-modal').addEventListener('click', () => reportModal.classList.remove('open'));
+            document.getElementById('close-config-modal').addEventListener('click', () => configListModal.classList.remove('open'));
+            document.getElementById('close-time-modal').addEventListener('click', () => timeModal.classList.remove('open'));
 
-            // 캘린더 상단 월 디스플레이 클릭 시 오늘 날짜로 복귀 및 구글 동기화 재수행
             currentMonthDisplay.addEventListener('click', () => {
                 currentDate = new Date(2026, 6, 1);
                 fetchDataFromGoogleSheets();
@@ -852,7 +845,6 @@
                 sendDataToGoogleSheets(selectedDateStr, attendanceData[selectedDateStr]);
             });
 
-            // 월 이동 시 구글로부터 동기화 데이터 다시 조회하도록 통합
             document.getElementById('prev-month').addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth() - 1); fetchDataFromGoogleSheets(); });
             document.getElementById('next-month').addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth() + 1); fetchDataFromGoogleSheets(); });
         }
