@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
     
-    <title>근무관리</title>
+    <title>근무관리 v0.9</title>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
     <style>
         :root {
@@ -91,7 +91,7 @@
         .day-cell.empty { background-color: transparent; cursor: default; border: none; }
         .day-cell.today-match { border: 2px solid var(--accent-color) !important; box-shadow: 0 0 4px rgba(0, 240, 255, 0.2); }
 
-        /* 🛠️ 가시성 조건 제어: 미래 날짜에서 '예상 수치(시간, 식사)'만 톤다운하고 스케줄(태그, 당직)은 선명함 유지 */
+        /* 가시성 설정: 미래 날짜에서 '예상 수치'만 톤다운, 스케줄은 100% 선명도 유지 */
         .day-cell.future-day .day-mid-time,
         .day-cell.future-day .mini-meal {
             opacity: 0.35 !important;
@@ -181,7 +181,6 @@
             <div class="app-title" id="trigger-global-config" title="환경설정 열기">근무관리 <span class="material-symbols-outlined" style="font-size:0.9rem;">settings</span></div>
             <div class="month-selector">
                 <span class="material-symbols-outlined arrow" id="prev-month">chevron_left</span>
-                <!-- 🛠️ 상단 표기 변경 반영 -->
                 <h2 id="current-month-display" title="오늘 날짜로 이동">2026년 07월</h2>
                 <span class="material-symbols-outlined arrow" id="next-month">chevron_right</span>
             </div>
@@ -371,11 +370,16 @@
         const systemToday = new Date(); 
         let currentDate = new Date(systemToday.getFullYear(), systemToday.getMonth(), 1); 
         
-        // 🛠️ 초기 로드 우선순위 교정: 로컬 스토리지 캐시를 먼저 완벽히 바인딩하여 새로고침 시 초기화 현상 방지
-        let attendanceData = JSON.parse(localStorage.getItem('overtime_data_v0.81')) || {};
-        let globalConfig = JSON.parse(localStorage.getItem('global_work_config_v0.81')) || { startTime: "04:10", endTime: "16:10" };
-        let currentTheme = localStorage.getItem('app_theme_v0.81') || 'dark';
-        let userGrade = localStorage.getItem('user_grade_v0.81') || '9'; 
+        // 1. 초기화 방지 핵심: 로컬 캐시를 최우선으로 확실하게 로딩
+        let attendanceData = JSON.parse(localStorage.getItem('overtime_data_v0.9')) || {};
+        // 하위 호환성 체크 (이전 버전에 데이터가 있다면 가져옴)
+        if (Object.keys(attendanceData).length === 0) {
+            attendanceData = JSON.parse(localStorage.getItem('overtime_data_v0.81')) || {};
+        }
+        
+        let globalConfig = JSON.parse(localStorage.getItem('global_work_config_v0.9')) || { startTime: "04:10", endTime: "16:10" };
+        let currentTheme = localStorage.getItem('app_theme_v0.9') || 'dark';
+        let userGrade = localStorage.getItem('user_grade_v0.9') || '9'; 
         let selectedDateStr = null;
         
         const todayMidnight = new Date(systemToday.getFullYear(), systemToday.getMonth(), systemToday.getDate());
@@ -411,39 +415,43 @@
             document.getElementById('global-cfg-start').value = globalConfig.startTime;
             document.getElementById('global-cfg-end').value = globalConfig.endTime;
             
-            // 🛠️ 캐시된 로컬 데이터를 기준으로 첫 화면을 먼저 렌더링(새로고침 시 깜빡임/초기화 차단)
+            // 새로고침 시 화면이 비어있지 않도록 즉시 로컬 캐시 데이터로 렌더링
             renderCalendar();
             updateDashboard();
 
-            // 이후 백그라운드에서 구글 최신 데이터를 받아와 동기화 및 덮어쓰기 진행
+            // 백그라운드에서 안전하게 구글 최신 데이터 호출
             fetchDataFromGoogleSheets();
             setupEventListeners();
             setupSwipeGestures();
         }
 
+        // 🛠️ 비동기 통신 오류 및 초기화 현상 수정완료 함수
         function fetchDataFromGoogleSheets() {
             showToast("구글 데이터 연동 중... 🔄");
             const requestUrl = `${SCRIPT_URL}?action=read&_ts=${Date.now()}`;
             
             fetch(requestUrl)
             .then(res => {
-                if (!res.ok) throw new Error("네트워크 오류");
+                if (!res.ok) throw new Error("네트워크 응답 불안정");
                 return res.json();
             })
             .then(data => {
+                // 가져온 데이터가 정상적인 객체인 경우에만 기존 로컬 데이터와 안전하게 병합(Merge) 처리
                 if (data && typeof data === 'object' && Object.keys(data).length > 0) {
-                    attendanceData = data;
-                    localStorage.setItem('overtime_data_v0.81', JSON.stringify(attendanceData));
-                    showToast("최신 데이터 동기화 완료 ✅", 1500);
+                    // 구글 데이터로 덮어쓰되, 로컬에만 있는 데이터 유실 방지를 위해 병합
+                    attendanceData = Object.assign({}, attendanceData, data);
+                    localStorage.setItem('overtime_data_v0.9', JSON.stringify(attendanceData));
+                    showToast("최신 데이터 동기화 완료 ✅", 1200);
                 } else {
-                    showToast("연동 성공 (기존 데이터 유지)", 1500);
+                    showToast("연동 성공 (입력된 데이터 유지)", 1200);
                 }
                 renderCalendar();
                 updateDashboard();
             })
             .catch(err => {
-                console.error("데이터 로딩 실패:", err);
-                showToast("구글 동기화 실패 (로컬 캐시 데이터 적용)", 2000);
+                console.error("구글 불러오기 실패:", err);
+                // 중요: 통신 실패 시 초기화하지 않고 현재 화면 데이터 완전 보존
+                showToast("구글 조회 실패 (안전하게 로컬 데이터 보존 💾)", 2000);
                 renderCalendar();
                 updateDashboard();
             });
@@ -470,10 +478,10 @@
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
             })
-            .then(() => { showToast("구글 서버 저장 완료! ✅", 1500); })
+            .then(() => { showToast("구글 서버 저장 완료! ✅", 1200); })
             .catch(err => {
                 console.error(err);
-                showToast("구글 저장 실패 ❌", 2000);
+                showToast("구글 저장 실패 ❌ (기기에 자동 임시저장됨)", 2000);
             });
         }
 
@@ -621,7 +629,6 @@
             const year = currentDate.getFullYear();
             const month = currentDate.getMonth();
 
-            // 🛠️ 상단 표기 스타일 반영 변경
             currentMonthDisplay.textContent = `${year}년 ${String(month + 1).padStart(2, '0')}월`;
 
             if (year === 2026 && month <= 5) {
@@ -858,7 +865,7 @@
             let item = attendanceData[dateStr];
             let res = parseDailySheet(dateStr, item.workType, item.startTime, item.endTime);
             item.overtimeMins = res.overtimeMins; item.breakfast = res.breakfast; item.lunch = res.lunch; item.overtimeText = res.timeText;
-            localStorage.setItem('overtime_data_v0.81', JSON.stringify(attendanceData));
+            localStorage.setItem('overtime_data_v0.9', JSON.stringify(attendanceData));
             renderCalendar(); updateDashboard();
             sendDataToGoogleSheets(dateStr, item);
         }
@@ -928,9 +935,9 @@
                 globalConfig.startTime = document.getElementById('global-cfg-start').value;
                 globalConfig.endTime = document.getElementById('global-cfg-end').value;
 
-                localStorage.setItem('user_grade_v0.81', userGrade);
-                localStorage.setItem('app_theme_v0.81', currentTheme);
-                localStorage.setItem('global_work_config_v0.81', JSON.stringify(globalConfig));
+                localStorage.setItem('user_grade_v0.9', userGrade);
+                localStorage.setItem('app_theme_v0.9', currentTheme);
+                localStorage.setItem('global_work_config_v0.9', JSON.stringify(globalConfig));
                 
                 document.documentElement.setAttribute('data-theme', currentTheme);
                 
@@ -946,7 +953,7 @@
             document.getElementById('btn-clear').addEventListener('click', () => {
                 if (attendanceData[selectedDateStr]) { delete attendanceData[selectedDateStr]; }
                 sendDataToGoogleSheets(selectedDateStr, null);
-                localStorage.setItem('overtime_data_v0.81', JSON.stringify(attendanceData));
+                localStorage.setItem('overtime_data_v0.9', JSON.stringify(attendanceData));
                 timeModal.classList.remove('open'); renderCalendar(); updateDashboard();
             });
 
@@ -960,7 +967,7 @@
                     workType: modalWorkTypeSelect.value, startTime: startTimeInput.value, endTime: endTimeInput.value,
                     isSukjik: prevSuk, isIljik: prevIl, overtimeText: res.timeText, overtimeMins: res.overtimeMins, breakfast: res.breakfast, lunch: res.lunch
                 };
-                localStorage.setItem('overtime_data_v0.81', JSON.stringify(attendanceData));
+                localStorage.setItem('overtime_data_v0.9', JSON.stringify(attendanceData));
                 timeModal.classList.remove('open'); renderCalendar(); updateDashboard();
                 sendDataToGoogleSheets(selectedDateStr, attendanceData[selectedDateStr]);
             });
