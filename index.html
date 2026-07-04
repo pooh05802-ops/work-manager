@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
     
-    <title>근무관리 시스템 v9.9 (연동 버그 완벽 수정)</title>
+    <title>근무관리 시스템 v10.0 (6월 제한 및 연동 보완)</title>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
     <style>
         :root {
@@ -36,8 +36,8 @@
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         
-        html, body { height: 100%; overflow: hidden; background-color: var(--body-bg); color: var(--text-main); }
-        body { display: flex; justify-content: center; align-items: center; padding: 0; transition: background-color 0.2s ease; }
+        html, body { height: 100%; overflow: hidden; background-color: var(--body-bg); color: var(--text-main); transition: background-color 0.2s ease; }
+        body { display: flex; justify-content: center; align-items: center; padding: 0; }
         
         .app-container {
             background-color: var(--app-bg); width: 100%; max-width: 430px; height: 100%;
@@ -51,6 +51,7 @@
         .month-selector h2 { font-size: 1rem; font-weight: 600; color: var(--text-white); cursor: pointer; padding: 2px 6px; border-radius: 6px; }
         .month-selector h2:hover { background-color: var(--card-bg); }
         .arrow { cursor: pointer; color: var(--text-muted); user-select: none; font-size: 1.2rem; }
+        .arrow.disabled { opacity: 0.2; cursor: not-allowed; }
 
         .summary-bar {
             background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px;
@@ -338,7 +339,6 @@
     <div id="sync-toast" class="sync-toast">구글 스프레드시트 동기화 중...</div>
 
     <script>
-        // 💡 전달해주신 새 구글 웹앱 URL이 올바르게 적용되었습니다.
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxjdmsg7U81v9xK4X1HUWHQ2b9cU0bl9gM2CcW-NmY6u8t5SSPe_rQvut2-DhHNOFtObQ/exec";
 
         const systemToday = new Date(2026, 6, 4); 
@@ -370,6 +370,7 @@
         const themeSelector = document.getElementById('theme-selector');
         const gradeSelector = document.getElementById('grade-selector');
         const syncToast = document.getElementById('sync-toast');
+        const prevMonthBtn = document.getElementById('prev-month');
 
         init();
 
@@ -381,8 +382,27 @@
             document.getElementById('global-cfg-start').value = globalConfig.startTime;
             document.getElementById('global-cfg-end').value = globalConfig.endTime;
             
+            checkPrevMonthArrowStatus();
             fetchDataFromGoogleSheets();
             setupEventListeners();
+        }
+
+        function checkPrevMonthArrowStatus() {
+            if (currentDate.getFullYear() === 2026 && currentDate.getMonth() === 5) {
+                prevMonthBtn.classList.add('disabled');
+            } else {
+                prevMonthBtn.classList.remove('disabled');
+            }
+        }
+
+        function normalizeDateKey(key) {
+            if (!key) return "";
+            let cleaned = key.replace(/[\.\/]/g, '-');
+            let parts = cleaned.split('-');
+            if (parts.length === 3) {
+                return `${parts[0]}-${String(parts[1]).padStart(2, '0')}-${String(parts[2]).padStart(2, '0')}`;
+            }
+            return key;
         }
 
         function fetchDataFromGoogleSheets() {
@@ -396,7 +416,13 @@
             })
             .then(data => {
                 if (data && typeof data === 'object' && Object.keys(data).length > 0) {
-                    attendanceData = data;
+                    let normalizedData = {};
+                    Object.keys(data).forEach(rawKey => {
+                        let normKey = normalizeDateKey(rawKey);
+                        normalizedData[normKey] = data[rawKey];
+                    });
+                    
+                    attendanceData = normalizedData;
                     localStorage.setItem('overtime_data_v9_4', JSON.stringify(attendanceData));
                     showToast("최신 데이터 동기화 완료 ✅", 1500);
                 } else {
@@ -744,7 +770,7 @@
                     </div>
                     <div class="config-duty-checkboxes">
                         <label class="config-check-lbl"><input type="checkbox" class="suk-chk" data-date="${dStr}" ${isSuk?'checked':''}> 숙</label>
-                        <label class="config-check-lbl"><input type="checkbox" class="il-chk" data-date="${dStr}" ${isIl?'checked':''}> 일</label>
+                        <label class="config-check-lbl"><input type="checkbox" class="il-chk" data-date="${dStr}" ${isIljik?'checked':''}> 일</label>
                     </div>
                 `;
 
@@ -814,6 +840,7 @@
 
             currentMonthDisplay.addEventListener('click', () => {
                 currentDate = new Date(2026, 6, 1);
+                checkPrevMonthArrowStatus();
                 fetchDataFromGoogleSheets();
             });
 
@@ -845,8 +872,17 @@
                 sendDataToGoogleSheets(selectedDateStr, attendanceData[selectedDateStr]);
             });
 
-            document.getElementById('prev-month').addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth() - 1); fetchDataFromGoogleSheets(); });
-            document.getElementById('next-month').addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth() + 1); fetchDataFromGoogleSheets(); });
+            prevMonthBtn.addEventListener('click', () => { 
+                if (currentDate.getFullYear() === 2026 && currentDate.getMonth() === 5) return; 
+                currentDate.setMonth(currentDate.getMonth() - 1); 
+                checkPrevMonthArrowStatus();
+                fetchDataFromGoogleSheets(); 
+            });
+            document.getElementById('next-month').addEventListener('click', () => { 
+                currentDate.setMonth(currentDate.getMonth() + 1); 
+                checkPrevMonthArrowStatus();
+                fetchDataFromGoogleSheets(); 
+            });
         }
     </script>
 </body>
