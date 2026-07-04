@@ -3,12 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <!-- 모바일 어플처럼 꽉 차게 보여주는 설정들 -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
     
-    <title>근무관리 시스템 v9.7 (실시간 연동)</title>
+    <title>근무관리 시스템 v9.8 (실시간 동기화)</title>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
     <style>
         :root {
@@ -36,66 +35,73 @@
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-        body { background-color: var(--body-bg); color: var(--text-main); display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; padding: 8px; transition: background-color 0.2s ease; }
+        
+        /* 📱 세로 스크롤 절대 방지 및 모바일 꽉 찬 화면 설정 */
+        html, body { height: 100%; overflow: hidden; background-color: var(--body-bg); color: var(--text-main); }
+        body { display: flex; justify-content: center; align-items: center; padding: 0; transition: background-color 0.2s ease; }
         
         .app-container {
-            background-color: var(--app-bg); width: 100%; max-width: 430px; min-height: 840px;
-            border-radius: 16px; padding: 14px 10px; display: flex; flex-direction: column;
+            background-color: var(--app-bg); width: 100%; max-width: 430px; height: 100%;
+            padding: 10px 8px; display: flex; flex-direction: column;
             box-shadow: 0 4px 20px rgba(0,0,0,0.3); transition: background-color 0.2s ease;
         }
 
-        .app-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 0 4px; }
-        .app-title { font-size: 1.2rem; font-weight: 800; color: var(--text-white); letter-spacing: -0.5px; }
-        .month-selector { display: flex; align-items: center; gap: 12px; }
-        .month-selector h2 { font-size: 1.05rem; font-weight: 600; color: var(--text-white); cursor: pointer; padding: 2px 6px; border-radius: 6px; }
+        .app-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 0 4px; flex-shrink: 0; }
+        .app-title { font-size: 1.15rem; font-weight: 800; color: var(--text-white); letter-spacing: -0.5px; }
+        .month-selector { display: flex; align-items: center; gap: 8px; }
+        .month-selector h2 { font-size: 1rem; font-weight: 600; color: var(--text-white); cursor: pointer; padding: 2px 6px; border-radius: 6px; }
         .month-selector h2:hover { background-color: var(--card-bg); }
-        .arrow { cursor: pointer; color: var(--text-muted); user-select: none; font-size: 1.3rem; }
+        .arrow { cursor: pointer; color: var(--text-muted); user-select: none; font-size: 1.2rem; }
 
         .summary-bar {
-            background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px;
-            display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;
-            overflow: hidden; padding: 10px 6px; white-space: nowrap;
+            background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px;
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;
+            padding: 8px 6px; white-space: nowrap; flex-shrink: 0;
         }
 
-        .summary-left-group { display: flex; align-items: center; gap: 6px; cursor: pointer; flex-shrink: 0; }
-        .main-total-time { font-size: 0.95rem; font-weight: 800; color: var(--accent-color); }
-        .predicted-time { font-size: 0.68rem; color: var(--text-muted); font-weight: 500; margin-right: 2px; }
+        .summary-left-group { display: flex; align-items: center; gap: 4px; cursor: pointer; flex-shrink: 0; }
+        .main-total-time { font-size: 0.9rem; font-weight: 800; color: var(--accent-color); }
+        .predicted-time { font-size: 0.65rem; color: var(--text-muted); font-weight: 500; margin-right: 2px; }
         
-        .sum-meal-group { display: flex; gap: 3px; font-size: 0.68rem; color: var(--text-white); align-items: center; }
+        .sum-meal-group { display: flex; gap: 3px; font-size: 0.65rem; color: var(--text-white); align-items: center; }
         .sum-meal-item { 
             display: flex; align-items: center; gap: 2px; background: var(--body-bg);
-            padding: 2px 4px; border-radius: 4px; border: 1px solid var(--border-color);
+            padding: 1px 4px; border-radius: 4px; border: 1px solid var(--border-color);
         }
 
-        .summary-right-group { display: flex; align-items: center; cursor: pointer; font-size: 0.68rem; color: var(--text-main); font-weight: 500; }
+        .summary-right-group { display: flex; align-items: center; cursor: pointer; font-size: 0.65rem; color: var(--text-main); font-weight: 500; }
         .dot-split { color: var(--accent-color); margin: 0 1px; }
 
-        .calendar-container { flex-grow: 1; display: flex; flex-direction: column; }
-        .weekdays { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 0.78rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; }
+        /* 📅 달력 컨테이너 크기 최적화 (스크롤 제거 핵심) */
+        .calendar-container { flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .weekdays { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 0.75rem; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; flex-shrink: 0; }
         .sunday { color: #ff4a4a; }
         .saturday { color: #4a90e2; }
 
-        .days-grid { display: grid; grid-template-columns: repeat(7, 1fr); grid-auto-rows: minmax(92px, 1fr); gap: 4px; }
+        /* 셀 최소 높이를 줄여서 6주가 들어가도 화면에 딱 맞춤 */
+        .days-grid { display: grid; grid-template-columns: repeat(7, 1fr); grid-auto-rows: minmax(76px, 1fr); gap: 4px; flex-grow: 1; }
         .day-cell {
-            background-color: var(--card-bg); border-radius: 8px; padding: 4px 2px;
+            background-color: var(--card-bg); border-radius: 8px; padding: 2px 1px;
             display: flex; flex-direction: column; justify-content: space-between; align-items: center;
-            cursor: pointer; border: 1px solid transparent; position: relative;
+            cursor: pointer; border: 1px solid transparent; position: relative; overflow: hidden;
         }
         .day-cell.empty { background-color: transparent; cursor: default; border: none; }
-        .day-cell.today-match { border: 2px solid var(--accent-color) !important; box-shadow: 0 0 6px rgba(0, 240, 255, 0.2); }
+        .day-cell.today-match { border: 2px solid var(--accent-color) !important; box-shadow: 0 0 4px rgba(0, 240, 255, 0.2); }
 
+        /* 오늘 이후 날짜 반투명 처리 */
         .day-cell.future-day .day-mid-time,
-        .day-cell.future-day .mini-meal {
-            opacity: 0.45; filter: grayscale(1) contrast(0.8); color: var(--text-muted) !important;
+        .day-cell.future-day .mini-meal,
+        .day-cell.future-day .mini-duty-badge {
+            opacity: 0.4; filter: grayscale(0.8);
         }
 
         .day-top-row { display: flex; flex-direction: column; align-items: center; width: 100%; gap: 1px; }
-        .day-cell .num { font-size: 0.85rem; font-weight: bold; color: var(--cell-num); }
+        .day-cell .num { font-size: 0.8rem; font-weight: bold; color: var(--cell-num); }
         .day-cell.sun .num { color: #ff4a4a; }
         .day-cell.sat .num { color: #4a90e2; }
         .day-cell.holiday .num { color: #ff4a4a; }
 
-        .mini-type-tag { font-size: 0.62rem; padding: 1px 3px; border-radius: 3px; font-weight: 500; line-height: 1; text-align: center; max-width: 100%; overflow: hidden; white-space: nowrap; }
+        .mini-type-tag { font-size: 0.58rem; padding: 1px 2px; border-radius: 3px; font-weight: 500; line-height: 1; text-align: center; max-width: 95%; overflow: hidden; white-space: nowrap; }
         .bg-holiday-work { background-color: #1a365d; color: #63b3ed; }
         [data-theme="light"] .bg-holiday-work { background-color: #ebf8ff; color: #2b6cb0; }
         .bg-leave { background-color: #5c3715; color: #f6ad55; }
@@ -103,13 +109,14 @@
         .bg-etc { background-color: #3b1854; color: #d6bcfa; }
         [data-theme="light"] .bg-etc { background-color: #faf5ff; color: #6b46c1; }
 
-        .day-mid-time { font-size: 0.68rem; color: var(--accent-color); font-weight: 700; letter-spacing: -0.3px; margin: 2px 0; text-align: center; }
-        .day-bottom-row { display: flex; justify-content: center; align-items: center; gap: 2px; width: 100%; min-height: 14px; }
-        .mini-meal { font-size: 0.62rem; line-height: 1; }
+        .day-mid-time { font-size: 0.65rem; color: var(--accent-color); font-weight: 700; letter-spacing: -0.3px; margin: 1px 0; text-align: center; }
+        .day-bottom-row { display: flex; justify-content: center; align-items: center; gap: 1px; width: 100%; min-height: 12px; }
+        .mini-meal { font-size: 0.58rem; line-height: 1; }
         
-        .mini-duty-badge { font-size: 0.58rem; padding: 0px 2px; border-radius: 2px; font-weight: bold; background-color: #ff4a4a; color: #fff; line-height: 1.2; }
+        .mini-duty-badge { font-size: 0.55rem; padding: 0px 1px; border-radius: 2px; font-weight: bold; background-color: #ff4a4a; color: #fff; line-height: 1.1; }
         .mini-duty-badge.iljik { background-color: #4a90e2; }
 
+        /* 모달 스타일 및 애니메이션 생략(동일) */
         .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.8); display: flex; justify-content: center; align-items: center; padding: 12px; z-index: 999; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; }
         .modal-overlay.open { opacity: 1; pointer-events: auto; }
         .modal-content { background-color: var(--app-bg); border: 1px solid var(--border-color); width: 100%; max-width: 390px; border-radius: 16px; padding: 16px; max-height: 85vh; overflow-y: auto; }
@@ -134,9 +141,6 @@
         .flex-1 { flex: 1; }
 
         select, input[type="time"] { width: 100%; background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-white); padding: 8px; font-size: 0.85rem; outline: none; }
-        select:focus, input[type="time"]:focus { border-color: var(--accent-color); }
-        input[type="time"]:disabled { background-color: var(--app-bg); color: var(--text-muted); border-color: var(--border-color); cursor: not-allowed; }
-
         .preview-box { background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 8px; margin: 10px 0; }
         .preview-title { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 4px; }
         .preview-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
@@ -144,9 +148,9 @@
         .preview-value { font-size: 0.9rem; font-weight: bold; }
 
         .modal-actions { display: flex; gap: 6px; margin-top: 12px; }
-        .btn { flex: 1; padding: 9px; border-radius: 8px; font-size: 0.82rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .btn { flex: 1; padding: 9px; border-radius: 8px; font-size: 0.82rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; border: none; }
         .btn-outline { background-color: transparent; border: 1px solid var(--border-color); color: var(--text-main); }
-        .btn-primary { background-color: var(--accent-color); border: none; color: #000000; }
+        .btn-primary { background-color: var(--accent-color); color: #000000; }
         [data-theme="light"] .btn-primary { color: #ffffff; }
 
         .report-section { margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; }
@@ -155,7 +159,7 @@
         .report-result { text-align: right; font-size: 0.9rem; font-weight: bold; color: var(--text-white); margin-top: 2px; }
 
         .theme-switch-container { display: flex; justify-content: space-between; align-items: center; padding: 8px 4px; margin-bottom: 12px; border-bottom: 1px solid var(--border-color); }
-        .sync-toast { position: fixed; bottom: 20px; right: 20px; background: rgba(0, 240, 255, 0.9); color: #000; padding: 10px 16px; border-radius: 8px; font-size: 0.82rem; font-weight: bold; z-index: 10000; box-shadow: 0 4px 12px rgba(0,0,0,0.5); display: none; }
+        .sync-toast { position: fixed; bottom: 20px; right: 20px; background: rgba(0, 240, 255, 0.95); color: #000; padding: 10px 16px; border-radius: 8px; font-size: 0.82rem; font-weight: bold; z-index: 10000; box-shadow: 0 4px 12px rgba(0,0,0,0.5); display: none; }
     </style>
 </head>
 <body>
@@ -182,7 +186,7 @@
             
             <div class="summary-right-group" id="trigger-config-popup">
                 <div id="dash-day-distribution">
-                    평일 0<span class="dot-split"> </span>휴일근무 0<span class="dot-split"> </span>휴무 0
+                    평일 0<span class="dot-split"> </span>휴일 0<span class="dot-split"> </span>휴무 0
                 </div>
             </div>
         </section>
@@ -212,15 +216,15 @@
             <div class="setting-base-box" style="margin-bottom: 12px;">
                 <div class="setting-base-title" style="color:var(--text-white);">적용 직급 선택 (2026년 기준)</div>
                 <select id="grade-selector" style="padding: 6px; font-size: 0.85rem;">
-                    <option value="9">일반 공무원 9급 (시급: 10,949원 / 휴일: 88,017원)</option>
-                    <option value="8">일반 공무원 8급 (시급: 12,113원 / 휴일: 97,373원)</option>
-                    <option value="7">일반 공무원 7급 (시급: 12,368원 / 휴일: 99,422원)</option>
-                    <option value="6">일반 공무원 6급 (시급: 13,692원 / 휴일: 110,065원)</option>
+                    <option value="9">일반 공무원 9급</option>
+                    <option value="8">일반 공무원 8급</option>
+                    <option value="7">일반 공무원 7급</option>
+                    <option value="6">일반 공무원 6급</option>
                 </select>
             </div>
             
             <div class="report-section">
-                <div class="report-title"><span class="material-symbols-outlined" style="color:var(--accent-color); font-size:1rem;">more_time</span> 시간외초과근무수당 (전체 실적합산)</div>
+                <div class="report-title"><span class="material-symbols-outlined" style="color:var(--accent-color); font-size:1rem;">more_time</span> 시간외초과근무수당 (오늘까지 실적합산)</div>
                 <div class="report-row"><span>실적 인정 시간</span> <span id="rep-actual-overtime">0H 00M</span></div>
                 <div class="report-row"><span>기본 제공시간</span> <span>10h 00m</span></div>
                 <div class="report-row"><span>적용 시급</span> <span id="rep-hourly-rate">10,949원</span></div>
@@ -228,23 +232,17 @@
             </div>
 
             <div class="report-section">
-                <div class="report-title"><span class="material-symbols-outlined" style="color:#ff4a4a; font-size:1rem;">event_busy</span> 휴일근무수당 (고정 산정)</div>
+                <div class="report-title"><span class="material-symbols-outlined" style="color:#ff4a4a; font-size:1rem;">event_busy</span> 휴일근무수당 (오늘까지 산정)</div>
                 <div class="report-row"><span>당월 실제 휴일근무 일수</span> <span id="rep-holiday-count">0일</span></div>
                 <div class="report-row"><span>휴일 일당 기준</span> <span id="rep-holiday-rate">88,017원</span></div>
                 <div class="report-result" style="color:#ff4a4a;" id="rep-holiday-amount">0원</div>
             </div>
 
             <div class="report-section" style="border:none; padding-bottom:0;">
-                <div class="report-title"><span class="material-symbols-outlined" style="color:#ffb700; font-size:1rem;">confirmation_number</span> 급량비 정산 현황</div>
+                <div class="report-title"><span class="material-symbols-outlined" style="color:#ffb700; font-size:1rem;">confirmation_number</span> 급량비 정산 현황 (오늘까지 산정)</div>
                 <div class="report-row"><span>새벽 조식비 1차(1~15일)</span> <span id="rep-bf1-val">0원</span></div>
                 <div class="report-row"><span>새벽 조식비 2차(16~말일)</span> <span id="rep-bf2-val">0원</span></div>
                 <div class="report-row"><span>한낮 급량비 (최대 20개 제한)</span> <span id="rep-lunch-val">0원</span></div>
-            </div>
-
-            <div class="modal-actions" style="margin-top:16px;">
-                <button type="button" class="btn btn-primary" id="btn-export-excel" style="gap:4px;">
-                    <span class="material-symbols-outlined" style="font-size:1.1rem;">download</span> 엑셀용 CSV 내보내기
-                </button>
             </div>
         </div>
     </div>
@@ -345,11 +343,10 @@
     <div id="sync-toast" class="sync-toast">구글 스프레드시트 동기화 중...</div>
 
     <script>
-        // 🔗 새로 발급받으신 주소
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbypyn3yJwfoFuHvyLe0m6l8L0o_JuTnF_bM0Ya-hemXviZhJaFk1lWyVJwme2ZoQND1mw/exec";
 
-        // 시스템 오늘 날짜 정확하게 지정 (2026년 7월)
-        const systemToday = new Date(2026, 6, 4); // 0이 1월이므로 6은 7월입니다.
+        // 시스템 오늘 날짜 고정 (2026년 7월 4일)
+        const systemToday = new Date(2026, 6, 4); 
         let currentDate = new Date(2026, 6, 1); 
         
         let attendanceData = JSON.parse(localStorage.getItem('overtime_data_v9_4')) || {};
@@ -388,9 +385,34 @@
 
             document.getElementById('global-cfg-start').value = globalConfig.startTime;
             document.getElementById('global-cfg-end').value = globalConfig.endTime;
-            renderCalendar();
-            updateDashboard();
+            
+            // 🔄 앱 실행 시 구글 서버로부터 최신 데이터를 땡겨옵니다 (양방향 동기화)
+            fetchDataFromGoogleSheets();
             setupEventListeners();
+        }
+
+        // 구글에서 전체 데이터 가져와 동기화하기 (PC-스마트폰 연동 핵심)
+        function fetchDataFromGoogleSheets() {
+            showToast("구글 데이터 연동 중... 🔄");
+            fetch(`${SCRIPT_URL}?action=read`)
+            .then(res => res.json())
+            .then(data => {
+                if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+                    attendanceData = data;
+                    localStorage.setItem('overtime_data_v9_4', JSON.stringify(attendanceData));
+                    showToast("최신 데이터 동기화 완료 ✅", 1500);
+                } else {
+                    showToast("구글에 저장된 데이터가 없습니다.", 1500);
+                }
+                renderCalendar();
+                updateDashboard();
+            })
+            .catch(err => {
+                console.error("데이터 로딩 실패:", err);
+                showToast("구글 동기화 실패 (로컬 데이터 표시)", 2000);
+                renderCalendar();
+                updateDashboard();
+            });
         }
 
         function sendDataToGoogleSheets(dateStr, itemData) {
@@ -414,10 +436,10 @@
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
             })
-            .then(() => { showToast("구글 서버 저장 완료! ✅", 2000); })
+            .then(() => { showToast("구글 서버 저장 완료! ✅", 1500); })
             .catch(err => {
                 console.error(err);
-                showToast("구글 동기화 실패 ❌", 3000);
+                showToast("구글 동기화 실패 ❌", 2000);
             });
         }
 
@@ -622,14 +644,17 @@
             const prefix = `${year}-${String(monthIdx + 1).padStart(2, '0')}`;
             const totalDays = new Date(year, monthIdx + 1, 0).getDate();
 
-            let actualOvertimeMins = 0; let predictedOvertimeMins = 0; let fullMonthHolidayCount = 0; 
+            let actualOvertimeMins = 0; 
+            let predictedOvertimeMins = 0; 
+            let fullMonthHolidayCount = 0; 
             let bf1Count = 0; let bf2Count = 0; let rawLunchCount = 0;
             let countNormal = 0; let countHolidayWork = 0; let countHuumu = 0;
             const currentRates = gradeRates[userGrade] || gradeRates["9"];
 
             for (let d = 1; d <= totalDays; d++) {
                 const dStr = `${prefix}-${String(d).padStart(2, '0')}`;
-                const dayOfWeek = new Date(year, monthIdx, d).getDay();
+                const checkDate = new Date(year, monthIdx, d);
+                const dayOfWeek = checkDate.getDay();
                 const isHoli = isLegalHoliday(year, monthIdx, d);
 
                 let currentType = getBaseWorkType(year, monthIdx, d, dayOfWeek, isHoli);
@@ -643,12 +668,16 @@
                 }
 
                 let metrics = parseDailySheet(dStr, currentType, startVal, endVal);
-                if (saved || new Date(year, monthIdx, d) <= todayMidnight) {
+                
+                // 🛑 [핵심 수정]: 오늘(7월 4일)을 포함한 "이전 날짜"일 때만 실제 실적에 반영!
+                if (checkDate <= todayMidnight) {
                     actualOvertimeMins += metrics.overtimeMins; 
                     if (d <= 15) bf1Count += metrics.breakfast; else bf2Count += metrics.breakfast;
                     rawLunchCount += metrics.lunch;
                     if (currentType === '휴일근무') fullMonthHolidayCount++;
                 }
+                
+                // 예상치는 오늘 이후 미래 날짜까지 전부 다 누적시킵니다.
                 predictedOvertimeMins += metrics.overtimeMins;
                 
                 if (currentType === '평일' || ['조퇴', '지각', '오전', '오후'].includes(currentType)) countNormal++;
@@ -656,12 +685,14 @@
                 else if (['휴무', '연가', '대휴', '특가', '공가'].includes(currentType)) countHuumu++;
             }
 
+            // 대시보드 디스플레이 업데이트
             document.getElementById('dash-total-overtime').textContent = `${Math.floor(actualOvertimeMins / 60)}H ${String(actualOvertimeMins % 60).padStart(2, '0')}M`;
             document.getElementById('dash-predicted-overtime').textContent = `(예상 ${Math.floor(predictedOvertimeMins / 60)}h${String(predictedOvertimeMins % 60).padStart(2, '0')}m)`;
             document.getElementById('dash-breakfast-count').textContent = bf1Count + bf2Count;
             document.getElementById('dash-lunch-count').textContent = rawLunchCount; 
             document.getElementById('dash-day-distribution').innerHTML = `평일 ${countNormal}<span class="dot-split"> </span>휴일 ${countHolidayWork}<span class="dot-split"> </span>휴무 ${countHuumu}`;
 
+            // 월간 정산 모달 뷰 데이터 매핑
             let limitedOvertimeMins = Math.min(actualOvertimeMins, 50 * 60);
             let lh = Math.floor(limitedOvertimeMins / 60);
             document.getElementById('rep-actual-overtime').textContent = `${Math.floor(actualOvertimeMins / 60)}H ${String(actualOvertimeMins % 60).padStart(2, '0')}M (인정: ${lh}H)`;
@@ -783,13 +814,14 @@
         function setupEventListeners() {
             document.getElementById('trigger-report-popup').addEventListener('click', () => reportModal.classList.add('open'));
             document.getElementById('trigger-config-popup').addEventListener('click', () => openConfigListModal());
-            document.getElementById('close-report-modal').addEventListener('click', () => reportModal.classList.remove('open'));
-            document.getElementById('close-config-modal').addEventListener('click', () => configListModal.classList.remove('open'));
-            document.getElementById('close-time-modal').addEventListener('click', () => timeModal.classList.remove('open'));
+            document.getElementById('close-report-modal').addEventListener('click', () => reportModal.remove('open'));
+            document.getElementById('close-config-modal').addEventListener('click', () => configListModal.remove('open'));
+            document.getElementById('close-time-modal').addEventListener('click', () => timeModal.remove('open'));
 
+            // 캘린더 상단 월 디스플레이 클릭 시 오늘 날짜로 복귀 및 구글 동기화 재수행
             currentMonthDisplay.addEventListener('click', () => {
                 currentDate = new Date(2026, 6, 1);
-                renderCalendar(); updateDashboard();
+                fetchDataFromGoogleSheets();
             });
 
             themeSelector.addEventListener('change', (e) => { currentTheme = e.target.value; document.documentElement.setAttribute('data-theme', currentTheme); localStorage.setItem('app_theme_v9_4', currentTheme); });
@@ -820,8 +852,9 @@
                 sendDataToGoogleSheets(selectedDateStr, attendanceData[selectedDateStr]);
             });
 
-            document.getElementById('prev-month').addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth() - 1); renderCalendar(); updateDashboard(); });
-            document.getElementById('next-month').addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth() + 1); renderCalendar(); updateDashboard(); });
+            // 월 이동 시 구글로부터 동기화 데이터 다시 조회하도록 통합
+            document.getElementById('prev-month').addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth() - 1); fetchDataFromGoogleSheets(); });
+            document.getElementById('next-month').addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth() + 1); fetchDataFromGoogleSheets(); });
         }
     </script>
 </body>
