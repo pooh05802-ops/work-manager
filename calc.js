@@ -81,7 +81,7 @@ export function parseDailySheet(dateStr, workType, startVal, endVal) {
     return { overtimeMins, breakfast, lunch, timeText: overtimeMins > 0 ? `${h}H ${String(m).padStart(2, '0')}M` : "" };
 }
 
-// 로컬 저장소 전체 데이터를 가공하여 한 달 동안의 내역을 엑셀(CSV) 문자열로 추출변환
+// 로컬 저장소 전체 데이터를 가공하여 한 달 동안의 내역을 엑셀(CSV) 문자열로 추출변환 (신규 한줄 일정 내역 병합 추가)
 export function convertToCSV(year, monthIdx, attendanceData) {
     const prefix = `${year}-${String(monthIdx + 1).padStart(2, '0')}`;
     const totalDays = new Date(year, monthIdx + 1, 0).getDate();
@@ -89,7 +89,7 @@ export function convertToCSV(year, monthIdx, attendanceData) {
 
     // Excel 한글 깨짐 방지용 특수 UTF-8 BOM 선언 처리
     let csvContent = "\uFEFF";
-    csvContent += "날짜,요일,근무형태,출근시간,퇴근시간,초과근무인정,숙직여부,일직여부,조식여부,급량비여부\n";
+    csvContent += "날짜,요일,근무형태,출근시간,퇴근시간,초과근무인정,등록일정,숙직여부,일직여부,조식여부,급량비여부\n";
 
     for (let d = 1; d <= totalDays; d++) {
         const dStr = `${prefix}-${String(d).padStart(2, '0')}`;
@@ -101,12 +101,13 @@ export function convertToCSV(year, monthIdx, attendanceData) {
         let startTime = saved.startTime || "";
         let endTime = saved.endTime || "";
         let overtimeText = saved.overtimeText || "";
+        let customSchedule = saved.customSchedule || ""; // 기록에 새겨진 개별 일정 병합
         let isSukjik = saved.isSukjik ? "O" : "X";
         let isIljik = saved.isIljik ? "O" : "X";
         let breakfast = saved.breakfast ? "O" : "X";
         let lunch = saved.lunch ? "O" : "X";
 
-        csvContent += `${dStr},${dayOfWeek},${workType},${startTime},${endTime},${overtimeText},${isSukjik},${isIljik},${breakfast},${lunch}\n`;
+        csvContent += `${dStr},${dayOfWeek},${workType},${startTime},${endTime},${overtimeText},${customSchedule},${isSukjik},${isIljik},${breakfast},${lunch}\n`;
     }
     return csvContent;
 }
