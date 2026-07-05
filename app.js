@@ -3,10 +3,22 @@ import { insaStandard, isLegalHoliday, parseDailySheet, convertToCSV } from './c
 const systemToday = new Date(); 
 let currentDate = new Date(systemToday.getFullYear(), systemToday.getMonth(), 1); 
 
+// 데이터 바인딩 고도화 (새로운 수동 일정 배열 및 To-Do 데이터 기본 처리 포함)
 let attendanceData = JSON.parse(localStorage.getItem('overtime_data_v1.0')) || {};
 let globalConfig = JSON.parse(localStorage.getItem('global_work_config_v1.0')) || { startTime: "04:10", endTime: "16:10" };
 let holidayConfig = JSON.parse(localStorage.getItem('holiday_work_config_v1.0')) || { startTime: "04:10", endTime: "05:50", useAuto: false };
 let currentTheme = localStorage.getItem('app_theme_v1.0') || 'dark';
+let todoList = JSON.parse(localStorage.getItem('wm_todo_list_v1.0')) || [];
+
+// 테마 색상 기본 설정값 바인딩 및 세분화
+let customThemeConfig = JSON.parse(localStorage.getItem('custom_theme_config_v1.0')) || {
+    fontSize: 11,
+    holidayColor: "#ff4a4a",
+    leaveColor: "#ffb74d",
+    earlyColor: "#e1bee7",
+    scheduleColor: "#38bdf8",
+    workHoursColor: "#00f0ff"
+};
 
 let gradeHistory = JSON.parse(localStorage.getItem('user_grade_history_v1.0')) || [
     { date: "2026-01-01", grade: "9", hourly: 10949, holiday: 88017 }
@@ -24,9 +36,13 @@ const timeModal = document.getElementById('time-modal');
 const reportModal = document.getElementById('report-modal');
 const configListModal = document.getElementById('config-list-modal');
 const globalConfigModal = document.getElementById('global-config-modal');
+const todoModal = document.getElementById('todo-modal');
+
 const modalWorkTypeSelect = document.getElementById('modal-work-type');
 const startTimeInput = document.getElementById('start-time');
 const endTimeInput = document.getElementById('end-time');
+const modalCustomScheduleInput = document.getElementById('modal-custom-schedule');
+
 const themeSelector = document.getElementById('theme-selector');
 const syncToast = document.getElementById('sync-toast');
 const gradeHistoryTbody = document.getElementById('grade-history-tbody');
@@ -45,12 +61,68 @@ function init() {
     document.getElementById('global-holiday-end').value = holidayConfig.endTime;
     document.getElementById('use-holiday-auto').checked = holidayConfig.useAuto;
     
+    // 환경설정 내 테마 세팅 UI 초기값 바인딩
+    document.getElementById('theme-font-size').value = customThemeConfig.fontSize;
+    document.getElementById('theme-font-size-val').textContent = `${customThemeConfig.fontSize}px`;
+    document.getElementById('theme-clr-holiday').value = customThemeConfig.holidayColor;
+    document.getElementById('theme-clr-leave').value = customThemeConfig.leaveColor;
+    document.getElementById('theme-clr-early').value = customThemeConfig.earlyColor;
+    document.getElementById('theme-clr-schedule').value = customThemeConfig.scheduleColor;
+    document.getElementById('theme-clr-workhours').value = customThemeConfig.workHoursColor;
+    
+    // 스마트 컬러 주입 활성화
+    applyDynamicStyles();
+    
+    // 연월 선택 드롭다운 생성
+    populateExcelDropdowns();
+
     sortGradeHistory();
     renderGradeHistoryTable();
     renderCalendar();
     updateDashboard();
     setupEventListeners();
     setupSwipeGestures();
+}
+
+function hexToRgba(hex, alpha = 0.15) {
+    let c = hex.substring(1);
+    if(c.length === 3) c = c.split('').map(x => x + x).join('');
+    const r = parseInt(c.substring(0, 2), 16);
+    const g = parseInt(c.substring(2, 4), 16);
+    const b = parseInt(c.substring(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function applyDynamicStyles() {
+    const root = document.documentElement;
+    root.style.setProperty('--user-font-size', `${customThemeConfig.fontSize}px`);
+    root.style.setProperty('--dynamic-clr-holiday', customThemeConfig.holidayColor);
+    root.style.setProperty('--dynamic-bg-holiday', hexToRgba(customThemeConfig.holidayColor));
+    root.style.setProperty('--dynamic-clr-leave', customThemeConfig.leaveColor);
+    root.style.setProperty('--dynamic-bg-leave', hexToRgba(customThemeConfig.leaveColor));
+    root.style.setProperty('--dynamic-clr-early', customThemeConfig.earlyColor);
+    root.style.setProperty('--dynamic-bg-early', hexToRgba(customThemeConfig.earlyColor));
+    root.style.setProperty('--dynamic-clr-schedule', customThemeConfig.scheduleColor);
+    root.style.setProperty('--dynamic-bg-schedule', hexToRgba(customThemeConfig.scheduleColor));
+    root.style.setProperty('--dynamic-clr-workhours', customThemeConfig.workHoursColor);
+}
+
+function populateExcelDropdowns() {
+    const ySel = document.getElementById('excel-export-year');
+    const mSel = document.getElementById('excel-export-month');
+    ySel.innerHTML = ''; mSel.innerHTML = '';
+    
+    // 2026년부터 2030년까지 선택 노출
+    for(let y = 2026; y <= 2030; y++) {
+        let opt = document.createElement('option'); opt.value = y; opt.textContent = `${y}년`;
+        if(y === currentDate.getFullYear()) opt.selected = true;
+        ySel.appendChild(opt);
+    }
+    for(let m = 1; m <= 12; m++) {
+        let opt = document.createElement('option'); opt.value = m - 1; opt.textContent = `${m}월`;
+        if((m - 1) === currentDate.getMonth()) opt.selected = true;
+        mSel.appendChild(opt);
+    }
 }
 
 function showToast(msg, duration = 1500) {
@@ -168,6 +240,7 @@ function renderCalendar() {
         let activeEnd = saved ? saved.endTime : "";
         let isSuk = saved ? saved.isSukjik : false;
         let isIl = saved ? saved.isIljik : false;
+        let customScheduleText = saved ? saved.customSchedule : ""; // 맞춤형 일정 확보
 
         if (cellDate > todayMidnight && saved && saved.isCustomModified) {
             dayCell.classList.add('custom-modified');
@@ -183,20 +256,26 @@ function renderCalendar() {
             }
         }
 
+        // 🎨 동적 스마트 클래스 결합 적용
         let classDecorator = "";
-        if (activeType === '휴일근무') classDecorator = "bg-holiday-work";
-        else if (['휴무', '연가', '대휴', '특가', '공가'].includes(activeType)) classDecorator = "bg-leave";
-        else if (['조퇴', '지각', '오전', '오후'].includes(activeType)) classDecorator = "bg-etc";
+        if (activeType === '휴일근무') classDecorator = "theme-badge-holiday";
+        else if (['휴무', '연가', '대휴', '특가', '공가'].includes(activeType)) classDecorator = "theme-badge-leave";
+        else if (['조퇴', '지각', '오전', '오후'].includes(activeType)) classDecorator = "theme-badge-early";
 
         let displayTag = (activeType !== '평일') ? `<span class="mini-type-tag ${classDecorator}">${activeType}</span>` : '';
+        
+        // 새로 추가된 커스텀 수동 일정 바인딩 처리
+        let scheduleTag = customScheduleText ? `<span class="mini-type-tag theme-badge-schedule">${customScheduleText}</span>` : '';
+
         let metrics = parseDailySheet(dateStr, activeType, activeStart, activeEnd);
-        let midTimeHtml = metrics.timeText ? `<div class="day-mid-time">${metrics.timeText.replace(' ', '')}</div>` : `<div class="day-mid-time" style="visibility:hidden;">-</div>`;
+        let midTimeHtml = metrics.timeText ? `<div class="day-mid-time theme-text-workhours">${metrics.timeText.replace(' ', '')}</div>` : `<div class="day-mid-time" style="visibility:hidden;">-</div>`;
 
         dayCell.innerHTML = `
             <div class="day-top-row"><span class="num">${day}</span>${displayTag}</div>
             <div class="duty-line">
                 ${isSuk ? `<span class="mini-duty-badge">숙직</span>` : ''}
                 ${isIl ? `<span class="mini-duty-badge iljik">일직</span>` : ''}
+                ${scheduleTag}
             </div>
             ${midTimeHtml}
             <div class="day-bottom-row">
@@ -292,6 +371,8 @@ function openTimeModal(dateStr, dayNum, dayOfWeek, isHoli) {
 
     let saved = attendanceData[dateStr];
     modalWorkTypeSelect.value = saved ? saved.workType : getBaseWorkType(currentDate.getFullYear(), currentDate.getMonth(), dayNum, dayOfWeek, isHoli);
+    modalCustomScheduleInput.value = (saved && saved.customSchedule) ? saved.customSchedule : ""; // 인풋 값 충전
+    
     applyTimeInputRules(modalWorkTypeSelect.value, dateStr);
     updateModalLivePreview();
     timeModal.classList.add('open');
@@ -361,7 +442,7 @@ function initDayContainer(dateStr, fallbackType = "평일") {
 
         attendanceData[dateStr] = {
             workType: fallbackType, startTime: st, endTime: et,
-            isSukjik: false, isIljik: false, overtimeMins: 0, breakfast: 0, lunch: 0, isCustomModified: false
+            isSukjik: false, isIljik: false, customSchedule: "", overtimeMins: 0, breakfast: 0, lunch: 0, isCustomModified: false
         };
     }
 }
@@ -374,6 +455,44 @@ function syncAndRefresh(dateStr) {
     }
     localStorage.setItem('overtime_data_v1.0', JSON.stringify(attendanceData));
     renderCalendar(); updateDashboard();
+}
+
+// 📝 [To-Do 관련 로직 구현]
+function renderTodoList() {
+    const container = document.getElementById('todo-list-container');
+    container.innerHTML = '';
+    
+    if(todoList.length === 0) {
+        container.innerHTML = `<li style="text-align:center; color:var(--text-muted); font-size:0.78rem; padding:15px 0;">등록된 할 일이 없습니다.</li>`;
+        return;
+    }
+
+    todoList.forEach((todo, idx) => {
+        const li = document.createElement('li');
+        li.className = `todo-item-node ${todo.done ? 'done' : ''}`;
+        li.innerHTML = `
+            <label class="todo-check-lbl">
+                <input type="checkbox" class="todo-check-input" ${todo.done ? 'checked' : ''}>
+                <span class="todo-text-span">${todo.text}</span>
+            </label>
+            <span class="material-symbols-outlined todo-del-btn">delete</span>
+        `;
+        
+        li.querySelector('.todo-check-input').addEventListener('change', () => {
+            todoList[idx].done = !todoList[idx].done;
+            saveTodos();
+        });
+        li.querySelector('.todo-del-btn').addEventListener('click', () => {
+            todoList.splice(idx, 1);
+            saveTodos();
+        });
+        container.appendChild(li);
+    });
+}
+
+function saveTodos() {
+    localStorage.setItem('wm_todo_list_v1.0', JSON.stringify(todoList));
+    renderTodoList();
 }
 
 function openConfigListModal() {
@@ -461,6 +580,7 @@ function moveMonth(offset) {
     }
     currentDate = nextMonth;
     renderCalendar(); updateDashboard();
+    populateExcelDropdowns(); // 월 변경 시 다운로드 옵션 동기화
 }
 
 function setupSwipeGestures() {
@@ -471,6 +591,27 @@ function setupSwipeGestures() {
 }
 
 function setupEventListeners() {
+    // 📝 To-Do 모달 트리거 이벤트 연결
+    document.getElementById('todo-toggle-btn').addEventListener('click', () => {
+        todoModal.classList.add('open');
+        renderTodoList();
+    });
+    document.getElementById('close-todo-modal').addEventListener('click', () => todoModal.classList.remove('open'));
+    
+    document.getElementById('btn-add-todo').addEventListener('click', () => {
+        const inp = document.getElementById('todo-input');
+        const txt = inp.value.trim();
+        if(!txt) return;
+        todoList.push({ text: txt, done: false });
+        inp.value = '';
+        saveTodos();
+    });
+
+    // 실시간 글자크기 조절 피드백 슬라이더
+    document.getElementById('theme-font-size').addEventListener('input', (e) => {
+        document.getElementById('theme-font-size-val').textContent = `${e.target.value}px`;
+    });
+
     document.getElementById('trigger-report-popup').addEventListener('click', () => reportModal.classList.add('open'));
     document.getElementById('trigger-config-popup').addEventListener('click', () => openConfigListModal());
     document.getElementById('trigger-global-config').addEventListener('click', () => globalConfigModal.classList.add('open'));
@@ -482,15 +623,16 @@ function setupEventListeners() {
 
     currentMonthDisplay.addEventListener('click', () => {
         currentDate = new Date(systemToday.getFullYear(), systemToday.getMonth(), 1);
-        renderCalendar(); updateDashboard();
+        renderCalendar(); updateDashboard(); populateExcelDropdowns();
     });
 
-    // 신규: 기기변경 대비 로컬 근무 데이터 전체 내보내기 (JSON 다운로드)
+    // 기기변경 전체 백업본 파일 다운로드
     document.getElementById('btn-export-data').addEventListener('click', () => {
         const backupBundle = {
             attendanceData: attendanceData,
             globalConfig: globalConfig,
             holidayConfig: holidayConfig,
+            customThemeConfig: customThemeConfig,
             gradeHistory: gradeHistory,
             exportTime: new Date().toISOString()
         };
@@ -503,7 +645,6 @@ function setupEventListeners() {
         showToast("근무 데이터 파일이 안전하게 내보내기 되었습니다! 💾");
     });
 
-    // 신규: 백업 파일 선택 트리거 및 복구 기능
     document.getElementById('btn-trigger-import').addEventListener('click', () => {
         document.getElementById('file-import-json').click();
     });
@@ -520,11 +661,13 @@ function setupEventListeners() {
                     globalConfig = imported.globalConfig || globalConfig;
                     holidayConfig = imported.holidayConfig || holidayConfig;
                     gradeHistory = imported.gradeHistory || gradeHistory;
+                    customThemeConfig = imported.customThemeConfig || customThemeConfig;
                     
                     localStorage.setItem('overtime_data_v1.0', JSON.stringify(attendanceData));
                     localStorage.setItem('global_work_config_v1.0', JSON.stringify(globalConfig));
                     localStorage.setItem('holiday_work_config_v1.0', JSON.stringify(holidayConfig));
                     localStorage.setItem('user_grade_history_v1.0', JSON.stringify(gradeHistory));
+                    localStorage.setItem('custom_theme_config_v1.0', JSON.stringify(customThemeConfig));
 
                     showToast("기록 복구가 완벽히 성공했습니다! 🎉");
                     init();
@@ -535,19 +678,19 @@ function setupEventListeners() {
         reader.readAsText(file);
     });
 
-    // 신규: 당월 엑셀(CSV) 다운로드 연동
+    // ④ [연월 선택형] 맞춤 엑셀(CSV) 다운로드 연동 완료
     document.getElementById('btn-export-excel').addEventListener('click', () => {
-        const y = currentDate.getFullYear();
-        const mIdx = currentDate.getMonth();
-        const csvString = convertToCSV(y, mIdx, attendanceData);
+        const selY = parseInt(document.getElementById('excel-export-year').value);
+        const selM = parseInt(document.getElementById('excel-export-month').value);
+        const csvString = convertToCSV(selY, selM, attendanceData);
         
         const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `근무현황_정산_${y}년_${String(mIdx+1).padStart(2,'0')}월.csv`;
+        a.download = `근무현황_정산_${selY}년_${String(selM+1).padStart(2,'0')}월.csv`;
         a.click();
-        showToast("당월 엑셀용 CSV 파일이 다운로드되었습니다. 📊");
+        showToast(`${selY}년 ${selM+1}월 엑셀용 파일이 다운로드되었습니다. 📊`);
     });
 
     document.getElementById('btn-add-history').addEventListener('click', () => {
@@ -567,6 +710,7 @@ function setupEventListeners() {
         renderGradeHistoryTable(); updateDashboard(); renderCalendar();
     });
 
+    // 종합 설정 및 테마 스마트컬러 세부 병합 완료 버튼
     document.getElementById('btn-save-global-settings').addEventListener('click', () => {
         currentTheme = themeSelector.value;
         globalConfig.startTime = document.getElementById('global-cfg-start').value;
@@ -575,10 +719,21 @@ function setupEventListeners() {
         holidayConfig.endTime = document.getElementById('global-holiday-end').value;
         holidayConfig.useAuto = document.getElementById('use-holiday-auto').checked;
 
+        // 세부 테마 제어 설정 축적 및 로컬 저장
+        customThemeConfig.fontSize = parseInt(document.getElementById('theme-font-size').value);
+        customThemeConfig.holidayColor = document.getElementById('theme-clr-holiday').value;
+        customThemeConfig.leaveColor = document.getElementById('theme-clr-leave').value;
+        customThemeConfig.earlyColor = document.getElementById('theme-clr-early').value;
+        customThemeConfig.scheduleColor = document.getElementById('theme-clr-schedule').value;
+        customThemeConfig.workHoursColor = document.getElementById('theme-clr-workhours').value;
+
         localStorage.setItem('app_theme_v1.0', currentTheme);
         localStorage.setItem('global_work_config_v1.0', JSON.stringify(globalConfig));
         localStorage.setItem('holiday_work_config_v1.0', JSON.stringify(holidayConfig));
+        localStorage.setItem('custom_theme_config_v1.0', JSON.stringify(customThemeConfig));
+        
         document.documentElement.setAttribute('data-theme', currentTheme);
+        applyDynamicStyles(); // 스마트 컬러 즉시 실시간 변환 엔진 적용
         
         const year = currentDate.getFullYear(); const monthIdx = currentDate.getMonth();
         const prefix = `${year}-${String(monthIdx + 1).padStart(2, '0')}`;
@@ -608,7 +763,7 @@ function setupEventListeners() {
         }
         localStorage.setItem('overtime_data_v1.0', JSON.stringify(attendanceData));
         globalConfigModal.classList.remove('open');
-        showToast("설정이 안전하게 저장되었습니다.");
+        showToast("설정과 테마가 안전하게 반영되었습니다. 🎨");
         renderCalendar(); updateDashboard();
     });
 
@@ -621,6 +776,7 @@ function setupEventListeners() {
         timeModal.classList.remove('open'); renderCalendar(); updateDashboard();
     });
 
+    // 하루 단위 모달 창 데이터 폼 최종 전송 및 저장 처리
     document.getElementById('time-form').addEventListener('submit', (e) => {
         e.preventDefault();
         let res = parseDailySheet(selectedDateStr, modalWorkTypeSelect.value, startTimeInput.value, endTimeInput.value);
@@ -631,9 +787,17 @@ function setupEventListeners() {
         let isModified = (pDate > todayMidnight);
 
         attendanceData[selectedDateStr] = {
-            workType: modalWorkTypeSelect.value, startTime: startTimeInput.value, endTime: endTimeInput.value,
-            isSukjik: prevSuk, isIljik: prevIl, overtimeText: res.timeText, overtimeMins: res.overtimeMins, 
-            breakfast: res.breakfast, lunch: res.lunch, isCustomModified: isModified
+            workType: modalWorkTypeSelect.value, 
+            startTime: startTimeInput.value, 
+            endTime: endTimeInput.value,
+            customSchedule: modalCustomScheduleInput.value.trim(), // 신규 한줄 일정 등록 데이터 매핑
+            isSukjik: prevSuk, 
+            isIljik: prevIl, 
+            overtimeText: res.timeText, 
+            overtimeMins: res.overtimeMins, 
+            breakfast: res.breakfast, 
+            lunch: res.lunch, 
+            isCustomModified: isModified
         };
         localStorage.setItem('overtime_data_v1.0', JSON.stringify(attendanceData));
         timeModal.classList.remove('open'); renderCalendar(); updateDashboard();
