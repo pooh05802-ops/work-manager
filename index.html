@@ -25,6 +25,7 @@
             --cell-num: #c9d1d9;
             --sookjik-bg: #e63946;
             --iljik-bg: #ffb700;
+            --custom-future: #38bdf8; /* 미래 임의 수정일 전용 밝은 하늘색 */
         }
 
         [data-theme="light"] {
@@ -40,6 +41,7 @@
             --cell-num: #24292f;
             --sookjik-bg: #b71c1c;
             --iljik-bg: #e65100;
+            --custom-future: #0284c7; /* 라이트모드 미래 임의 수정일 전용 짙은 하늘색 */
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -107,6 +109,8 @@
         .day-mid-time { font-size: 0.68rem; letter-spacing: -0.3px; margin: 2px 0; text-align: center; }
         .day-cell.past-day .day-mid-time { color: var(--accent-color); font-weight: 700; } 
         .day-cell.future-day .day-mid-time { color: var(--text-muted); font-weight: 600; } 
+        /* 사용자가 수동 수정한 미래 날짜 가독성 강화 스케줄링 */
+        .day-cell.future-day.custom-modified .day-mid-time { color: var(--custom-future) !important; font-weight: 800 !important; font-size: 0.72rem; }
         
         .day-bottom-row { display: flex; justify-content: center; align-items: center; gap: 5px; width: 100%; min-height: 12px; }
         .mini-meal-item { font-size: 0.62rem; line-height: 1; display: inline-block; }
@@ -308,7 +312,7 @@
         </div>
     </div>
 
-    <!-- [팝업 4] 통합 환경설정 모달 (v0.99 휴일근무 기능 조건 제어탑 탑재) -->
+    <!-- [팝업 4] 통합 환경설정 모달 -->
     <div class="modal-overlay" id="global-config-modal">
         <div class="modal-content">
             <header class="modal-header">
@@ -353,7 +357,6 @@
                 </div>
             </div>
 
-            <!-- v0.99 신규 기능: 토요일 공휴일 휴일근무 기본값 제어 및 일요일 제외 옵션 -->
             <div class="setting-base-box">
                 <div class="setting-base-title" style="color: #4a90e2; display:flex; justify-content:between; width:100%; align-items:center;">
                     <span>📅 휴일근무 기본값 설정 (익일부터 적용)</span>
@@ -392,8 +395,6 @@
         
         let attendanceData = JSON.parse(localStorage.getItem('overtime_data_v0.9')) || {};
         let globalConfig = JSON.parse(localStorage.getItem('global_work_config_v0.9')) || { startTime: "04:10", endTime: "16:10" };
-        
-        // v0.99 추가 저장소 데이터 정의
         let holidayConfig = JSON.parse(localStorage.getItem('holiday_work_config_v0.99')) || { startTime: "04:10", endTime: "05:50", useAuto: false };
         
         let currentTheme = localStorage.getItem('app_theme_v0.9') || 'dark';
@@ -438,7 +439,6 @@
             document.getElementById('global-cfg-start').value = globalConfig.startTime;
             document.getElementById('global-cfg-end').value = globalConfig.endTime;
             
-            // v0.99 UI 값 초기 동기화 연동
             document.getElementById('global-holiday-start').value = holidayConfig.startTime;
             document.getElementById('global-holiday-end').value = holidayConfig.endTime;
             document.getElementById('use-holiday-auto').checked = holidayConfig.useAuto;
@@ -578,7 +578,6 @@
                         startTimeInput.value = saved.startTime;
                         endTimeInput.value = saved.endTime;
                     } else {
-                        // v0.99 수동 클릭 시에도 미래고 토글조건 충족 시 기본값 로드
                         let parts = targetDateStr.split('-').map(Number);
                         let cellDate = new Date(parts[0], parts[1]-1, parts[2]);
                         cellDate.setHours(0,0,0,0);
@@ -740,13 +739,16 @@
                 let isSuk = saved ? saved.isSukjik : false;
                 let isIl = saved ? saved.isIljik : false;
 
-                // [v0.99 핵심] 미래 날짜의 기본 자동 채우기 로직 고도화
+                // 미래 날짜 중 사용자가 직접 수동 조정한 이력이 있는지 체크하고 클래스 부여
+                if (cellDate > todayMidnight && saved && saved.isCustomModified) {
+                    dayCell.classList.add('custom-modified');
+                }
+
                 if (!saved) {
                     if (activeType === '평일') {
                         activeStart = (dayOfWeek === 5) ? "06:00" : getFilteredBaseTime(dateStr, 'start'); 
                         activeEnd = (dayOfWeek === 5) ? "15:00" : getFilteredBaseTime(dateStr, 'end'); 
                     } 
-                    // 미래 날짜이면서, 토글이 켜져있고, 토요일이거나 공휴일이되 일요일이 아닌 조건 충족 시
                     else if (activeType === '휴일근무' && cellDate > todayMidnight && holidayConfig.useAuto && (dayOfWeek === 6 || isHoli) && dayOfWeek !== 0) {
                         activeStart = holidayConfig.startTime;
                         activeEnd = holidayConfig.endTime;
@@ -921,11 +923,14 @@
                 row.querySelector('.config-select').addEventListener('change', (e) => {
                     initDayContainer(dStr);
                     attendanceData[dStr].workType = e.target.value;
+                    
+                    // 직접 수동 조정한 이력이 아니므로 false 초기화
+                    attendanceData[dStr].isCustomModified = false;
+
                     if (e.target.value === '평일') { 
                         attendanceData[dStr].startTime = (dayOfWeek === 5) ? "06:00" : getFilteredBaseTime(dStr, 'start'); 
                         attendanceData[dStr].endTime = (dayOfWeek === 5) ? "15:00" : getFilteredBaseTime(dStr, 'end'); 
                     } else if (e.target.value === '휴일근무') {
-                        // v0.99 조건 충족 시 휴일근무 일괄변경 시에도 기본값 제공
                         if (cellDate > todayMidnight && holidayConfig.useAuto && (dayOfWeek === 6 || isHoli) && dayOfWeek !== 0) {
                             attendanceData[dStr].startTime = holidayConfig.startTime;
                             attendanceData[dStr].endTime = holidayConfig.endTime;
@@ -967,7 +972,7 @@
 
                 attendanceData[dateStr] = {
                     workType: fallbackType, startTime: st, endTime: et,
-                    isSukjik: false, isIljik: false, overtimeMins: 0, breakfast: 0, lunch: 0
+                    isSukjik: false, isIljik: false, overtimeMins: 0, breakfast: 0, lunch: 0, isCustomModified: false
                 };
             }
         }
@@ -1030,10 +1035,11 @@
             document.getElementById('trigger-config-popup').addEventListener('click', () => openConfigListModal());
             document.getElementById('trigger-global-config').addEventListener('click', () => globalConfigModal.classList.add('open'));
             
-            document.getElementById('close-report-modal').addEventListener('click', () => reportModal.remove('open'));
-            document.getElementById('close-config-modal').addEventListener('click', () => configListModal.remove('open'));
-            document.getElementById('close-time-modal').addEventListener('click', () => timeModal.remove('open'));
-            document.getElementById('close-global-modal').addEventListener('click', () => globalConfigModal.remove('open'));
+            // 날짜 클릭 불가 버그 완벽 수정 (classList 상속 누락 해결)
+            document.getElementById('close-report-modal').addEventListener('click', () => reportModal.classList.remove('open'));
+            document.getElementById('close-config-modal').addEventListener('click', () => configListModal.classList.remove('open'));
+            document.getElementById('close-time-modal').addEventListener('click', () => timeModal.classList.remove('open'));
+            document.getElementById('close-global-modal').addEventListener('click', () => globalConfigModal.classList.remove('open'));
 
             currentMonthDisplay.addEventListener('click', () => {
                 currentDate = new Date(systemToday.getFullYear(), systemToday.getMonth(), 1);
@@ -1072,7 +1078,6 @@
                 globalConfig.startTime = document.getElementById('global-cfg-start').value;
                 globalConfig.endTime = document.getElementById('global-cfg-end').value;
 
-                // v0.99 신규 파라미터 메모리 영구 보존 동기화
                 holidayConfig.startTime = document.getElementById('global-holiday-start').value;
                 holidayConfig.endTime = document.getElementById('global-holiday-end').value;
                 holidayConfig.useAuto = document.getElementById('use-holiday-auto').checked;
@@ -1083,6 +1088,42 @@
                 
                 document.documentElement.setAttribute('data-theme', currentTheme);
                 
+                // 설정 완료 후 오늘 이후의 미수정 데이터만 일괄 일치 반영
+                const year = currentDate.getFullYear();
+                const monthIdx = currentDate.getMonth();
+                const prefix = `${year}-${String(monthIdx + 1).padStart(2, '0')}`;
+                const totalDays = new Date(year, monthIdx + 1, 0).getDate();
+
+                for (let d = 1; d <= totalDays; d++) {
+                    const dStr = `${prefix}-${String(d).padStart(2, '0')}`;
+                    const checkDate = new Date(year, monthIdx, d);
+                    const dayOfWeek = checkDate.getDay();
+                    const isHoli = isLegalHoliday(year, monthIdx, d);
+
+                    if (checkDate > todayMidnight) {
+                        let saved = attendanceData[dStr];
+                        // 임의 수정(isCustomModified)이 되지 않은 예정일만 일괄 동기화 타겟으로 제한
+                        if (!saved || !saved.isCustomModified) {
+                            let currentType = getBaseWorkType(year, monthIdx, d, dayOfWeek, isHoli);
+                            initDayContainer(dStr, currentType);
+                            
+                            if (currentType === '평일') {
+                                attendanceData[dStr].startTime = (dayOfWeek === 5) ? "06:00" : globalConfig.startTime;
+                                attendanceData[dStr].endTime = (dayOfWeek === 5) ? "15:00" : globalConfig.endTime;
+                            } else if (currentType === '휴일근무' && holidayConfig.useAuto && dayOfWeek !== 0) {
+                                attendanceData[dStr].startTime = holidayConfig.startTime;
+                                attendanceData[dStr].endTime = holidayConfig.endTime;
+                            }
+                            let res = parseDailySheet(dStr, attendanceData[dStr].workType, attendanceData[dStr].startTime, attendanceData[dStr].endTime);
+                            attendanceData[dStr].overtimeMins = res.overtimeMins;
+                            attendanceData[dStr].breakfast = res.breakfast;
+                            attendanceData[dStr].lunch = res.lunch;
+                            attendanceData[dStr].overtimeText = res.timeText;
+                        }
+                    }
+                }
+                localStorage.setItem('overtime_data_v0.9', JSON.stringify(attendanceData));
+
                 globalConfigModal.classList.remove('open');
                 showToast("환경설정이 성공적으로 저장되었습니다. ✨", 1500);
                 renderCalendar();
@@ -1105,9 +1146,18 @@
                 let prevSuk = attendanceData[selectedDateStr] ? attendanceData[selectedDateStr].isSukjik : false;
                 let prevIl = attendanceData[selectedDateStr] ? attendanceData[selectedDateStr].isIljik : false;
 
+                let pDate = new Date(selectedDateStr.split('-').map(Number)[0], selectedDateStr.split('-').map(Number)[1]-1, selectedDateStr.split('-').map(Number)[2]);
+                let isModified = false;
+                
+                // 미래 날짜이면서 사용자가 임의로 출퇴근 시간을 바꿨다면 플래그 부여
+                if (pDate > todayMidnight) {
+                    isModified = true;
+                }
+
                 attendanceData[selectedDateStr] = {
                     workType: modalWorkTypeSelect.value, startTime: startTimeInput.value, endTime: endTimeInput.value,
-                    isSukjik: prevSuk, isIljik: prevIl, overtimeText: res.timeText, overtimeMins: res.overtimeMins, breakfast: res.breakfast, lunch: res.lunch
+                    isSukjik: prevSuk, isIljik: prevIl, overtimeText: res.timeText, overtimeMins: res.overtimeMins, 
+                    breakfast: res.breakfast, lunch: res.lunch, isCustomModified: isModified
                 };
                 localStorage.setItem('overtime_data_v0.9', JSON.stringify(attendanceData));
                 timeModal.classList.remove('open'); renderCalendar(); updateDashboard();
