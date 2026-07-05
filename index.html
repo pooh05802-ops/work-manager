@@ -6,8 +6,9 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
-    <meta name="theme-color" content="#0d1117">
-    <meta name="background-color" content="#0d1117">
+    <!-- 다크모드 메인 톤을 짙은 회색(차콜) 계열인 #1E1E1E로 최적화 -->
+    <meta name="theme-color" content="#1e1e1e">
+    <meta name="background-color" content="#1e1e1e">
     <title>근무관리</title>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
@@ -20,10 +21,7 @@
                 근무관리 <span class="material-symbols-outlined" style="font-size:0.9rem;">settings</span>
             </div>
             
-            <!-- 📝 상단 정중앙 To-Do 버튼 추가 -->
-            <button type="button" id="todo-toggle-btn" class="todo-trigger-btn">
-                <span class="material-symbols-outlined" style="font-size:1rem;">playlist_add_check</span> To-Do
-            </button>
+            <!-- 🗓️ To-Do 버튼이 제거되어 상단 정중앙 레이아웃이 깔끔하게 정돈됩니다 -->
 
             <div class="month-selector">
                 <span class="material-symbols-outlined arrow" id="prev-month">chevron_left</span>
@@ -50,23 +48,6 @@
             </div>
             <div class="days-grid" id="days-grid"></div>
         </main>
-    </div>
-
-    <!-- 📝 [신규 팝업] To-Do 리스트 모달 추가 -->
-    <div class="modal-overlay" id="todo-modal">
-        <div class="modal-content">
-            <header class="modal-header">
-                <h3 style="font-size:0.95rem; color:var(--text-white); display:flex; align-items:center; gap:4px;">
-                    <span class="material-symbols-outlined" style="color:var(--accent-color);">assignment</span> To-Do 리스트
-                </h3>
-                <span class="material-symbols-outlined close-btn" id="close-todo-modal">close</span>
-            </header>
-            <div class="todo-input-group">
-                <input type="text" id="todo-input" placeholder="잊지 말아야 할 할 일을 입력하세요...">
-                <button type="button" id="btn-add-todo" class="btn btn-primary" style="padding:0 12px; font-size:0.8rem; width:auto; flex-shrink:0;">추가</button>
-            </div>
-            <ul class="todo-list-wrapper" id="todo-list-container"></ul>
-        </div>
     </div>
 
     <!-- [팝업 1] 월간 정산 내역 모달 -->
@@ -142,7 +123,7 @@
                     </div>
                 </div>
 
-                <!-- ✨ [신규] 일일 일정 등록 칸 추가 -->
+                <!-- 📌 중요 일정 등록 칸: 이곳에 쓰이는 일정이 달력 안에서 가독성 높은 할 일(Todo)의 역할을 대체합니다 -->
                 <div class="form-group" style="margin-top:4px;">
                     <label style="color:var(--custom-future); font-weight:bold;">일정 등록 (출장, 교육 등)</label>
                     <input type="text" id="modal-custom-schedule" placeholder="그날의 특이 일정을 입력하세요..." style="width:100%; background-color:var(--card-bg); border:1px solid var(--border-color); color:var(--text-white); padding:8px; border-radius:8px; font-size:0.85rem; outline:none;">
@@ -181,7 +162,7 @@
         </div>
     </div>
 
-    <!-- [팝업 4] 통합 환경설정 모달 (요청받은 구조 순서로 전면 재정렬 및 기능 추가) -->
+    <!-- [팝업 4] 통합 환경설정 모달 (색상/폰트 변경 피커 제거로 대폭 심플화) -->
     <div class="modal-overlay" id="global-config-modal">
         <div class="modal-content">
             <header class="modal-header">
@@ -242,7 +223,7 @@
                 </div>
             </div>
 
-            <!-- ④ 엑셀 내보내기 (지정 연월 선택형 변경) -->
+            <!-- ④ 엑셀 내보내기 -->
             <div class="setting-base-box" style="border:1px solid #107c41;">
                 <div class="setting-base-title" style="color:#107c41;">4. 📊 맞춤형 엑셀 내보내기 (연월 선택 가능)</div>
                 <div style="display: flex; gap: 6px; align-items: center; margin-top: 6px;">
@@ -262,47 +243,16 @@
                 </div>
             </div>
 
-            <!-- ⑥ 테마설정 (상세 제어 인풋 대거 통합) -->
+            <!-- ⑥ 라이트/다크 셀렉터만 남겨둔 기본 테마 설정 -->
             <div class="setting-base-box" style="margin-bottom:20px;">
-                <div class="setting-base-title" style="color:#e24ae2;">6. 🎨 화면 및 캘린더 글자 테마 설정</div>
+                <div class="setting-base-title" style="color:#e24ae2;">6. 🎨 기본 테마 설정</div>
                 <div style="display:flex; flex-direction:column; gap:8px;">
                     <div style="display:flex; align-items:center; justify-content:space-between;">
-                        <span style="font-size:0.8rem;">기본 모드</span>
+                        <span style="font-size:0.8rem;">화면 모드</span>
                         <select id="theme-selector" style="padding:4px; font-size:0.82rem; width:120px; height:auto;">
                             <option value="dark">다크 모드</option>
                             <option value="light">라이트 모드</option>
                         </select>
-                    </div>
-                    
-                    <div style="display:flex; align-items:center; justify-content:space-between; margin-top:4px;">
-                        <span style="font-size:0.8rem;">달력 글자 크기</span>
-                        <div style="display:flex; align-items:center; gap:6px; width:65%;">
-                            <input type="range" id="theme-font-size" min="10" max="15" value="11" style="width:100%; height:6px;">
-                            <span id="theme-font-size-val" style="font-size:0.75rem; width:25px; text-align:right;">11px</span>
-                        </div>
-                    </div>
-
-                    <div class="theme-color-picker-grid">
-                        <div class="picker-item">
-                            <label>휴일근무</label>
-                            <input type="color" id="theme-clr-holiday" value="#ff4a4a">
-                        </div>
-                        <div class="picker-item">
-                            <label>휴무계열</label>
-                            <input type="color" id="theme-clr-leave" value="#ffb74d">
-                        </div>
-                        <div class="picker-item">
-                            <label>조퇴계열</label>
-                            <input type="color" id="theme-clr-early" value="#e1bee7">
-                        </div>
-                        <div class="picker-item">
-                            <label>새로운일정</label>
-                            <input type="color" id="theme-clr-schedule" value="#38bdf8">
-                        </div>
-                        <div class="picker-item">
-                            <label>실적시간</label>
-                            <input type="color" id="theme-clr-workhours" value="#00f0ff">
-                        </div>
                     </div>
                 </div>
             </div>
