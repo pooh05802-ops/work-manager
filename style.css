@@ -1,19 +1,20 @@
 :root {
-    --body-bg: #000000;
-    --app-bg: #0d1117;
-    --card-bg: #161b22;
-    --header-bg: #090d13;
-    --border-color: #30363d;
-    --text-main: #e0e0e0;
+    /* 기본 배경을 완전 블랙(#000)에서 세련되고 깊이감 있는 짙은 차콜 회색으로 교체 */
+    --body-bg: #121214;
+    --app-bg: #1e1e22;
+    --card-bg: #252529;
+    --header-bg: #18181a;
+    --border-color: #323238;
+    --text-main: #e3e3e6;
     --text-white: #ffffff;
-    --text-muted: #8b949e;
+    --text-muted: #9a9a9f;
     --accent-color: #00f0ff;
-    --cell-num: #c9d1d9;
+    --cell-num: #cfcfd3;
     --sookjik-bg: #e63946;
     --iljik-bg: #ffb700;
     --custom-future: #38bdf8;
     
-    /* 사용자 지정 테마 대응 컴포넌트 변수 초기화 */
+    /* 제거된 ⑥번 설정 항목을 대체하는 안정적인 시스템 기본 고정값 */
     --user-font-size: 11px;
     --dynamic-clr-holiday: #ff4a4a;
     --dynamic-bg-holiday: rgba(255, 74, 74, 0.15);
@@ -60,14 +61,6 @@ body { display: flex; justify-content: center; align-items: center; padding: 0; 
 .arrow { cursor: pointer; color: var(--text-muted); user-select: none; font-size: 1.2rem; }
 .arrow.disabled { opacity: 0.2; cursor: not-allowed; }
 
-/* 📝 상단 To-Do 트리거 버튼 디자인 */
-.todo-trigger-btn {
-    background-color: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-main);
-    padding: 4px 10px; border-radius: 14px; font-size: 0.75rem; font-weight: bold; cursor: pointer;
-    display: flex; align-items: center; gap: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); transition: all 0.2s ease;
-}
-.todo-trigger-btn:hover { background-color: var(--header-bg); border-color: var(--accent-color); color: var(--text-white); }
-
 .summary-bar {
     background-color: var(--header-bg); border: 1px solid var(--border-color); border-radius: 10px;
     display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;
@@ -99,7 +92,6 @@ body { display: flex; justify-content: center; align-items: center; padding: 0; 
 .day-cell.sat .num { color: #4a90e2; }
 .day-cell.holiday .num { color: #ff4a4a; }
 
-/* 🎨 스마트 컬러 및 폰트 사이즈 연동 클래스 커스텀 제어 */
 .mini-type-tag { 
     font-size: var(--user-font-size); 
     padding: 2px 4px; border-radius: 4px; font-weight: 800; line-height: 1; text-align: center; 
@@ -125,36 +117,15 @@ body { display: flex; justify-content: center; align-items: center; padding: 0; 
 .day-bottom-row { display: flex; justify-content: center; align-items: center; gap: 5px; width: 100%; min-height: 12px; }
 .mini-meal-item { font-size: 0.62rem; line-height: 1; display: inline-block; }
 
+/* 내일 이후(미래)의 데이터나 아직 실적이 확인되지 않는 조식비/급량비 요소를 시각적으로 흐리게 제어 */
 .day-cell.past-day .mini-meal-item { opacity: 1.0; } 
-.day-cell.future-day .mini-meal-item { opacity: 0.7; } 
+.day-cell.future-day .mini-meal-item { opacity: 0.35; filter: grayscale(40%); } 
 
 .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.8); display: flex; justify-content: center; align-items: center; padding: 12px; z-index: 999; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; }
 .modal-overlay.open { opacity: 1; pointer-events: auto; }
 .modal-content { background-color: var(--app-bg); border: 1px solid var(--border-color); width: 100%; max-width: 400px; border-radius: 16px; padding: 16px; max-height: 90vh; overflow-y: auto; }
 .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .close-btn { color: var(--text-muted); cursor: pointer; }
-
-/* 📝 To-Do 모달 전용 레이아웃 스펙 추가 */
-.todo-input-group { display: flex; gap: 6px; margin-bottom: 12px; }
-.todo-input-group input { 
-    flex: 1; background-color: var(--card-bg); border: 1px solid var(--border-color); 
-    color: var(--text-white); padding: 8px; border-radius: 8px; font-size: 0.85rem; outline: none; 
-}
-.todo-list-wrapper { list-style: none; display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; }
-.todo-item-node { 
-    display: flex; justify-content: space-between; align-items: center; 
-    background-color: var(--card-bg); padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border-color); 
-}
-.todo-item-node.done .todo-text-span { text-decoration: line-through; color: var(--text-muted); }
-.todo-check-lbl { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; cursor: pointer; color: var(--text-main); flex: 1; }
-.todo-del-btn { color: #ff4a4a; font-size: 1.1rem; cursor: pointer; user-select: none; padding: 2px; }
-.todo-del-btn:hover { background-color: rgba(255, 74, 74, 0.1); border-radius: 4px; }
-
-/* 테마 제어용 그리드 레이아웃 스펙 추가 */
-.theme-color-picker-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 8px; border-top: 1px dashed var(--border-color); padding-top: 8px; }
-.picker-item { display: flex; align-items: center; justify-content: space-between; background: var(--app-bg); padding: 4px 6px; border-radius: 6px; border: 1px solid var(--border-color); }
-.picker-item label { font-size: 0.72rem; color: var(--text-muted); }
-.picker-item input[type="color"] { border: none; background: transparent; width: 28px; height: 24px; cursor: pointer; padding: 0; }
 
 .setting-base-box { background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 10px; margin-bottom: 12px; }
 .setting-base-title { font-size: 0.78rem; font-weight: bold; color: var(--accent-color); margin-bottom: 6px; }
@@ -186,7 +157,7 @@ body { display: flex; justify-content: center; align-items: center; padding: 0; 
 
 select, input[type="time"] { width: 100%; background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-white); padding: 8px; font-size: 0.85rem; outline: none; }
 .preview-box { background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 8px; margin: 10px 0; }
-.preview-title { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 4px; }
+.preview-title { font-size: 0.7 foolproof; color: var(--text-muted); margin-bottom: 4px; }
 .preview-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .preview-label { display: block; font-size: 0.68rem; color: var(--text-muted); }
 .preview-value { font-size: 0.9rem; font-weight: bold; }
