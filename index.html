@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#1f242c">
     <meta name="background-color" content="#1f242c">
     
-    <title>근무관리 v1.9 (과거데이터 완전보존)</title>
+    <title>근무관리</title>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
     <style>
         :root {
@@ -267,7 +267,7 @@
 
             <div class="report-section">
                 <div class="report-title"><span><span class="material-symbols-outlined" style="color:#ff4a4a; font-size:1rem; vertical-align:middle;">event_busy</span> 휴일근무수당 (월 예상 합산)</span></div>
-                <div class="report-row"><span>당월 예상 휴일근무 일수</span> <span id="rep-holiday-count">0일</span></div>
+                <div class="report-row"><span>당월 휴일근무 일수</span> <span id="rep-holiday-count">0일</span></div>
                 <div class="report-row"><span>휴일근무수당</span> <span id="rep-holiday-rate-label">9급 기준 88,017원</span></div>
                 <div class="report-result" style="color:#ff4a4a;" id="rep-holiday-amount">0원</div>
             </div>
@@ -373,7 +373,12 @@
 
             <!-- 1. 평일 기본값 세팅 -->
             <div class="setting-base-box">
-                <div class="setting-base-title" style="color: #ffd166;">① 평일근무 기본 출퇴근 시간 설정</div>
+                <div class="setting-base-title" style="color: #ffd166; display:flex; justify-content:space-between; align-items:center;">
+                    ① 평일근무 기본 출퇴근 시간 설정
+                    <label style="font-size:0.75rem; color:var(--text-white); font-weight:normal; display:flex; align-items:center; gap:4px; cursor:pointer;">
+                        <input type="checkbox" id="global-cfg-friday-inc"> 금요일포함
+                    </label>
+                </div>
                 <div class="setting-base-inputs">
                     <input type="time" id="global-cfg-start" value="04:10">
                     <span style="font-size:0.75rem; color:var(--text-muted);">~</span>
@@ -454,22 +459,29 @@
 
     <script>
         const systemToday = new Date(); 
-        let currentDate = new Date(systemToday.getFullYear(), systemToday.getMonth(), 1); 
         
-        let attendanceData = JSON.parse(localStorage.getItem('overtime_data_v1.5')) || {};
-        let globalConfig = JSON.parse(localStorage.getItem('global_work_config_v1.5')) || { startTime: "04:10", endTime: "16:10" };
-        let holidayConfig = JSON.parse(localStorage.getItem('holiday_work_config_v1.5')) || { startTime: "03:45", endTime: "05:50" };
-        let currentTheme = localStorage.getItem('app_theme_v1.5') || 'dark';
+        // 데이터 호환성을 위해 이전 버전이 있으면 가져옴
+        let attendanceData = JSON.parse(localStorage.getItem('overtime_data')) || JSON.parse(localStorage.getItem('overtime_data_v1.5')) || {};
+        let globalConfig = JSON.parse(localStorage.getItem('global_work_config')) || JSON.parse(localStorage.getItem('global_work_config_v1.5')) || { startTime: "04:10", endTime: "16:10", includeFriday: false };
+        let holidayConfig = JSON.parse(localStorage.getItem('holiday_work_config')) || JSON.parse(localStorage.getItem('holiday_work_config_v1.5')) || { startTime: "03:45", endTime: "05:50" };
+        let currentTheme = localStorage.getItem('app_theme') || localStorage.getItem('app_theme_v1.5') || 'dark';
         
-        let gradeHistory = JSON.parse(localStorage.getItem('user_grade_history_v1.5')) || [
+        let gradeHistory = JSON.parse(localStorage.getItem('user_grade_history')) || JSON.parse(localStorage.getItem('user_grade_history_v1.5')) || [
             { date: "2026-01-01", grade: "9", hourly: 10949, holiday: 88017 }
         ];
         
         let selectedDateStr = null;
+        let selectedDayOfWeek = 0;
         
         const todayMidnight = new Date(systemToday.getFullYear(), systemToday.getMonth(), systemToday.getDate());
         todayMidnight.setHours(0,0,0,0);
-        const limitMinDate = new Date(2026, 0, 1); // 과거 데이터 추적을 위해 1월부터 커버
+        
+        // 2026년 06월 01일로 제한 
+        const limitMinDate = new Date(2026, 5, 1); 
+        
+        // 초기 구동 날짜가 제한일보다 이전인 경우 보정
+        let initialViewDate = systemToday < limitMinDate ? limitMinDate : systemToday;
+        let currentDate = new Date(initialViewDate.getFullYear(), initialViewDate.getMonth(), 1); 
 
         const insaStandard = {
             "9": { hourly: 10949, holiday: 88017 },
@@ -487,6 +499,8 @@
             '휴일근무': { start: '06:00', end: '11:00' }
         };
 
+        let publicHolidaysCache = {}; // 공공 API 연동 캐시
+
         const daysGrid = document.getElementById('days-grid');
         const currentMonthDisplay = document.getElementById('current-month-display');
         const timeModal = document.getElementById('time-modal');
@@ -501,12 +515,13 @@
 
         init();
 
-        function init() {
+        async function init() {
             document.documentElement.setAttribute('data-theme', currentTheme);
             themeSelector.value = currentTheme;
 
             document.getElementById('global-cfg-start').value = globalConfig.startTime;
             document.getElementById('global-cfg-end').value = globalConfig.endTime;
+            document.getElementById('global-cfg-friday-inc').checked = globalConfig.includeFriday || false;
             
             document.getElementById('global-holiday-start').value = holidayConfig.startTime;
             document.getElementById('global-holiday-end').value = holidayConfig.endTime;
@@ -515,6 +530,8 @@
             sortGradeHistory();
             renderGradeHistoryTable();
             
+            await fetchHolidays(currentDate.getFullYear());
+
             renderCalendar();
             updateDashboard();
             
@@ -526,6 +543,40 @@
             document.getElementById('new-hist-grade').dispatchEvent(new Event('change'));
             setupEventListeners();
             setupSwipeGestures();
+        }
+
+        async function fetchHolidays(year) {
+            if (publicHolidaysCache[year]) return;
+            try {
+                // 공공 API 연동 (Nager.Date 오픈 API 사용 - 한국 공휴일 지원)
+                const response = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/KR`);
+                if (response.ok) {
+                    const data = await response.json();
+                    publicHolidaysCache[year] = data.map(h => h.date);
+                } else {
+                    throw new Error("API Fetch Failed");
+                }
+            } catch (error) {
+                console.warn('공휴일 API 로드 실패. 내부 캘린더 규칙을 대체 사용합니다.', error);
+            }
+        }
+
+        function isLegalHoliday(year, month, day) {
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            
+            // 공공 API 데이터가 있는 경우 우선 적용
+            if (publicHolidaysCache[year]) {
+                return publicHolidaysCache[year].includes(dateStr);
+            }
+            
+            // API 통신 실패시 Fallback (기본 공휴일)
+            const fixedHolidays = ["1-1", "3-1", "5-5", "6-6", "7-17", "8-15", "10-3", "10-9", "12-25"];
+            if (fixedHolidays.includes(`${month+1}-${day}`)) return true;
+            if (year === 2026) {
+                const dynamic2026 = ["2-16", "2-17", "2-18", "3-3", "5-24", "9-24", "9-25", "9-26"]; 
+                return dynamic2026.includes(`${month+1}-${day}`);
+            }
+            return false;
         }
 
         function getRateForDate(dateStr) {
@@ -559,8 +610,12 @@
                     <td style="text-align:right;"><button type="button" class="btn-mini-del" data-idx="${idx}">×</button></td>
                 `;
                 tr.querySelector('.btn-mini-del').addEventListener('click', () => {
+                    if (gradeHistory.length <= 1) {
+                        alert("최소 1개의 직급 및 단가 이력은 남겨두어야 합니다.");
+                        return;
+                    }
                     gradeHistory.splice(idx, 1);
-                    localStorage.setItem('user_grade_history_v1.5', JSON.stringify(gradeHistory));
+                    localStorage.setItem('user_grade_history', JSON.stringify(gradeHistory));
                     renderGradeHistoryTable();
                     updateDashboard();
                     renderCalendar();
@@ -570,36 +625,47 @@
         }
 
         function buildExcelSelectors() {
+            const currentYear = systemToday.getFullYear();
+            const minYear = 2026;
+            // 요청하신 바와 같이 동적 연도 범위 할당 (현재년도-3 부터 현재년도까지 표시)
+            let startYear = currentYear - 3;
+            if (startYear < minYear) startYear = minYear;
+
             const ySel = document.getElementById('export-year');
             const mSel = document.getElementById('export-month');
             ySel.innerHTML = ''; mSel.innerHTML = '';
-            [2026, 2027, 2028].forEach(y => {
+            
+            for (let y = startYear; y <= currentYear; y++) {
                 let o = document.createElement('option'); o.value = y; o.textContent = y + "년"; ySel.appendChild(o);
-            });
-            for(let m=1; m<=12; m++) {
+            }
+            for(let m = 1; m <= 12; m++) {
                 let o = document.createElement('option'); o.value = m; o.textContent = m + "월"; mSel.appendChild(o);
             }
             ySel.value = currentDate.getFullYear();
             mSel.value = currentDate.getMonth() + 1;
         }
 
-        function isLegalHoliday(year, month, day) {
-            const fixedHolidays = ["1-1", "3-1", "5-5", "6-6", "7-17", "8-15", "10-3", "10-9", "12-25"];
-            if (fixedHolidays.includes(`${month+1}-${day}`)) return true;
-            if (year === 2026) {
-                const dynamic2026 = ["2-16", "2-17", "2-18", "3-3", "5-24", "9-24", "9-25", "9-26"]; 
-                return dynamic2026.includes(`${month+1}-${day}`);
+        function getDefaultTimeForDay(type, dayOfWeek) {
+            if (type === '평일') {
+                if (dayOfWeek === 5 && !globalConfig.includeFriday) {
+                    return { start: "", end: "" };
+                }
+                return { start: globalConfig.startTime, end: globalConfig.endTime };
+            } else if (type === '휴일근무') {
+                return { start: holidayConfig.startTime, end: holidayConfig.endTime };
+            } else if (['조퇴', '지각', '오전', '오후'].includes(type)) {
+                return { start: REGULAR_HOURS[type].start, end: REGULAR_HOURS[type].end };
             }
-            return false;
+            return { start: "", end: "" };
         }
 
-        function applyTimeInputRules(type, targetDateStr = null) {
+        function applyTimeInputRules(type, targetDateStr, dayOfWeek) {
             startTimeInput.disabled = false;
             endTimeInput.disabled = false;
 
             let saved = targetDateStr ? attendanceData[targetDateStr] : null;
 
-            if (saved && saved.startTime) {
+            if (saved && saved.workType === type && saved.startTime !== undefined && saved.startTime !== "") {
                 startTimeInput.value = saved.startTime;
                 endTimeInput.value = saved.endTime;
                 if (type === '조퇴' || type === '오후') endTimeInput.disabled = true;
@@ -607,39 +673,12 @@
                 return;
             }
 
-            switch (type) {
-                case '평일':
-                    startTimeInput.value = globalConfig.startTime;
-                    endTimeInput.value = globalConfig.endTime;
-                    break;
-                case '휴일근무':
-                    startTimeInput.value = holidayConfig.startTime;
-                    endTimeInput.value = holidayConfig.endTime;
-                    break;
-                case '조퇴':
-                    startTimeInput.value = "04:10"; 
-                    endTimeInput.value = "12:00"; 
-                    endTimeInput.disabled = true;
-                    break;
-                case '지각':
-                    startTimeInput.value = "08:00"; 
-                    startTimeInput.disabled = true;
-                    endTimeInput.value = "16:10"; 
-                    break;
-                case '오전':
-                    startTimeInput.value = "10:00"; 
-                    startTimeInput.disabled = true;
-                    endTimeInput.value = "16:10"; 
-                    break;
-                case '오후':
-                    startTimeInput.value = "04:10"; 
-                    endTimeInput.value = "10:00"; 
-                    endTimeInput.disabled = true;
-                    break;
-                default: 
-                    startTimeInput.value = ""; endTimeInput.value = "";
-                    startTimeInput.disabled = true; endTimeInput.disabled = true; break;
-            }
+            let defaults = getDefaultTimeForDay(type, dayOfWeek);
+            startTimeInput.value = defaults.start;
+            endTimeInput.value = defaults.end;
+            
+            if (type === '조퇴' || type === '오후') endTimeInput.disabled = true;
+            if (type === '지각' || type === '오전') startTimeInput.disabled = true;
         }
 
         function parseDailySheet(dateStr, workType, startVal, endVal) {
@@ -743,7 +782,7 @@
 
             currentMonthDisplay.textContent = `${year}년 ${String(month + 1).padStart(2, '0')}월`;
 
-            if (year === 2026 && month <= 0) { // 최소 월 변경
+            if (year <= 2026 && month <= 5) { // 2026년 6월 이하로 못내려가게
                 document.getElementById('prev-month').classList.add('disabled');
             } else {
                 document.getElementById('prev-month').classList.remove('disabled');
@@ -803,27 +842,18 @@
                     dayCell.classList.add('future-time-modified');
                 }
 
+                if (!saved) {
+                    let defaults = getDefaultTimeForDay(activeType, dayOfWeek);
+                    activeStart = defaults.start;
+                    activeEnd = defaults.end;
+                }
+
                 if (activeType === '휴일근무') {
                     dayCell.classList.add('cell-working-holiday');
                 } else if (['휴무', '연가', '대휴', '특가', '공가'].includes(activeType)) {
                     dayCell.classList.add('cell-resting-holiday');
                 } else if (['조퇴', '지각', '오전', '오후'].includes(activeType)) {
                     dayCell.classList.add('cell-etc-holiday');
-                }
-
-                if (!saved) {
-                    if (activeType === '평일') {
-                        activeStart = globalConfig.startTime; 
-                        activeEnd = globalConfig.endTime; 
-                    } 
-                    else if (activeType === '휴일근무') {
-                        activeStart = holidayConfig.startTime;
-                        activeEnd = holidayConfig.endTime;
-                    }
-                    else if (['조퇴', '지각', '오전', '오후'].includes(activeType)) {
-                        activeStart = REGULAR_HOURS[activeType].start;
-                        activeEnd = REGULAR_HOURS[activeType].end;
-                    }
                 }
 
                 let classDecorator = "";
@@ -890,16 +920,9 @@
                 let endVal = saved ? saved.endTime : "";
 
                 if (!saved) {
-                    if (currentType === '평일') { 
-                        startVal = globalConfig.startTime; 
-                        endVal = globalConfig.endTime; 
-                    } else if (currentType === '휴일근무') {
-                        startVal = holidayConfig.startTime;
-                        endVal = holidayConfig.endTime;
-                    } else if (['조퇴', '지각', '오전', '오후'].includes(currentType)) {
-                        startVal = REGULAR_HOURS[currentType].start;
-                        endVal = REGULAR_HOURS[currentType].end;
-                    }
+                    let defaults = getDefaultTimeForDay(currentType, dayOfWeek);
+                    startVal = defaults.start;
+                    endVal = defaults.end;
                 }
 
                 let metrics = parseDailySheet(dStr, currentType, startVal, endVal);
@@ -1007,16 +1030,10 @@
                     attendanceData[dStr].workType = e.target.value;
                     attendanceData[dStr].isCustomTimeModified = false;
 
-                    if (e.target.value === '평일') { 
-                        attendanceData[dStr].startTime = globalConfig.startTime; 
-                        attendanceData[dStr].endTime = globalConfig.endTime; 
-                    } else if (e.target.value === '휴일근무') {
-                        attendanceData[dStr].startTime = holidayConfig.startTime;
-                        attendanceData[dStr].endTime = holidayConfig.endTime;
-                    } else if (['조퇴','지각','오전','오후'].includes(e.target.value)) {
-                        attendanceData[dStr].startTime = REGULAR_HOURS[e.target.value].start;
-                        attendanceData[dStr].endTime = REGULAR_HOURS[e.target.value].end;
-                    } else { attendanceData[dStr].startTime = ""; attendanceData[dStr].endTime = ""; }
+                    let defaults = getDefaultTimeForDay(e.target.value, dayOfWeek);
+                    attendanceData[dStr].startTime = defaults.start;
+                    attendanceData[dStr].endTime = defaults.end;
+
                     saveDataAndRefresh(dStr);
                 });
 
@@ -1061,20 +1078,13 @@
 
         function initDayContainer(dateStr, fallbackType = "평일") {
             if (!attendanceData[dateStr]) {
-                let st = ""; let et = "";
-                if (fallbackType === "평일") {
-                    st = globalConfig.startTime;
-                    et = globalConfig.endTime;
-                } else if (fallbackType === "휴일근무") {
-                    st = holidayConfig.startTime;
-                    et = holidayConfig.endTime;
-                } else if (['조퇴','지각','오전','오후'].includes(fallbackType)) {
-                    st = REGULAR_HOURS[fallbackType].start;
-                    et = REGULAR_HOURS[fallbackType].end;
-                }
+                const parts = dateStr.split('-');
+                const tempDate = new Date(parts[0], parts[1]-1, parts[2]);
+                const dayOfWeek = tempDate.getDay();
 
+                let defaults = getDefaultTimeForDay(fallbackType, dayOfWeek);
                 attendanceData[dateStr] = {
-                    workType: fallbackType, startTime: st, endTime: et,
+                    workType: fallbackType, startTime: defaults.start, endTime: defaults.end,
                     isSukjik: false, isIljik: false, overtimeMins: 0, breakfast: 0, lunch: 0, isCustomTimeModified: false, memo: ""
                 };
             }
@@ -1086,12 +1096,14 @@
                 let res = parseDailySheet(dateStr, item.workType, item.startTime, item.endTime);
                 item.overtimeMins = res.overtimeMins; item.breakfast = res.breakfast; item.lunch = res.lunch; item.overtimeText = res.timeText;
             }
-            localStorage.setItem('overtime_data_v1.5', JSON.stringify(attendanceData));
+            localStorage.setItem('overtime_data', JSON.stringify(attendanceData));
             renderCalendar(); updateDashboard();
         }
 
         function openTimeModal(dateStr, dayNum, dayOfWeek, isHoli) {
             selectedDateStr = dateStr;
+            selectedDayOfWeek = dayOfWeek;
+            
             document.getElementById('modal-date-day').textContent = dayNum;
             document.getElementById('modal-date-month-year').textContent = `${currentDate.getMonth() + 1}월`;
             document.getElementById('modal-date-weekday').textContent = ['일', '월', '화', '수', '목', '금', '토'][dayOfWeek];
@@ -1101,7 +1113,7 @@
             
             document.getElementById('modal-day-memo').value = saved && saved.memo ? saved.memo : "";
 
-            applyTimeInputRules(modalWorkTypeSelect.value, dateStr);
+            applyTimeInputRules(modalWorkTypeSelect.value, dateStr, dayOfWeek);
             updateModalLivePreview();
             timeModal.classList.add('open');
         }
@@ -1124,13 +1136,14 @@
             }
         }
 
-        function moveMonth(offset) {
+        async function moveMonth(offset) {
             let nextMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + offset, 1);
             if (nextMonth < limitMinDate) {
-                alert("2026년 01월 이전으로는 이동할 수 없습니다.");
+                alert("2026년 06월 이전으로는 이동할 수 없습니다.");
                 return;
             }
             currentDate = nextMonth;
+            await fetchHolidays(currentDate.getFullYear());
             renderCalendar();
             updateDashboard();
         }
@@ -1151,6 +1164,7 @@
 
             currentMonthDisplay.addEventListener('click', () => {
                 currentDate = new Date(systemToday.getFullYear(), systemToday.getMonth(), 1);
+                if (currentDate < limitMinDate) currentDate = new Date(limitMinDate.getFullYear(), limitMinDate.getMonth(), 1);
                 renderCalendar();
                 updateDashboard();
             });
@@ -1169,7 +1183,7 @@
                 gradeHistory = gradeHistory.filter(item => item.date !== dStr);
                 gradeHistory.push({ date: dStr, grade: gr, hourly: hVal, holiday: holVal });
                 sortGradeHistory();
-                localStorage.setItem('user_grade_history_v1.5', JSON.stringify(gradeHistory));
+                localStorage.setItem('user_grade_history', JSON.stringify(gradeHistory));
                 
                 renderGradeHistoryTable();
                 updateDashboard();
@@ -1243,16 +1257,17 @@
                             if (parsedObj.gradeHistory) gradeHistory = parsedObj.gradeHistory;
                             if (parsedObj.currentTheme) currentTheme = parsedObj.currentTheme;
 
-                            localStorage.setItem('overtime_data_v1.5', JSON.stringify(attendanceData));
-                            localStorage.setItem('global_work_config_v1.5', JSON.stringify(globalConfig));
-                            localStorage.setItem('holiday_work_config_v1.5', JSON.stringify(holidayConfig));
-                            localStorage.setItem('user_grade_history_v1.5', JSON.stringify(gradeHistory));
-                            localStorage.setItem('app_theme_v1.5', currentTheme);
+                            localStorage.setItem('overtime_data', JSON.stringify(attendanceData));
+                            localStorage.setItem('global_work_config', JSON.stringify(globalConfig));
+                            localStorage.setItem('holiday_work_config', JSON.stringify(holidayConfig));
+                            localStorage.setItem('user_grade_history', JSON.stringify(gradeHistory));
+                            localStorage.setItem('app_theme', currentTheme);
 
                             document.documentElement.setAttribute('data-theme', currentTheme);
                             themeSelector.value = currentTheme;
                             document.getElementById('global-cfg-start').value = globalConfig.startTime;
                             document.getElementById('global-cfg-end').value = globalConfig.endTime;
+                            document.getElementById('global-cfg-friday-inc').checked = globalConfig.includeFriday || false;
                             document.getElementById('global-holiday-start').value = holidayConfig.startTime;
                             document.getElementById('global-holiday-end').value = holidayConfig.endTime;
 
@@ -1276,36 +1291,46 @@
                 document.documentElement.setAttribute('data-theme', currentTheme);
             });
 
-            // [핵심 로직 완전 재작성] 과거 데이터 명시적 보호 및 미래 데이터 갱신
             document.getElementById('btn-save-global-settings').addEventListener('click', () => {
                 currentTheme = themeSelector.value;
                 document.documentElement.setAttribute('data-theme', currentTheme);
-                localStorage.setItem('app_theme_v1.5', currentTheme);
+                localStorage.setItem('app_theme', currentTheme);
 
                 const oldGlobal = { ...globalConfig };
                 const oldHoliday = { ...holidayConfig };
 
-                const newGlobal = { startTime: document.getElementById('global-cfg-start').value, endTime: document.getElementById('global-cfg-end').value };
-                const newHoliday = { startTime: document.getElementById('global-holiday-start').value, endTime: document.getElementById('global-holiday-end').value };
+                const newGlobal = { 
+                    startTime: document.getElementById('global-cfg-start').value, 
+                    endTime: document.getElementById('global-cfg-end').value,
+                    includeFriday: document.getElementById('global-cfg-friday-inc').checked
+                };
+                const newHoliday = { 
+                    startTime: document.getElementById('global-holiday-start').value, 
+                    endTime: document.getElementById('global-holiday-end').value 
+                };
 
-                // 2026년 1월부터 2028년 연말까지 모든 날짜를 순회하며 안전하게 갱신
-                const START_DATE = new Date(2026, 0, 1);
-                const END_DATE = new Date(2028, 11, 31);
+                const START_DATE = new Date(2026, 5, 1);
+                const END_DATE = new Date(new Date().getFullYear() + 2, 11, 31);
                 let curr = new Date(START_DATE);
 
                 while (curr <= END_DATE) {
                     let dStr = `${curr.getFullYear()}-${String(curr.getMonth() + 1).padStart(2, '0')}-${String(curr.getDate()).padStart(2, '0')}`;
-                    let isPastOrToday = curr <= todayMidnight; // 오늘 포함 그 이전 (과거)
+                    let isPastOrToday = curr <= todayMidnight;
+                    let dayOfWeek = curr.getDay();
 
                     if (isPastOrToday) {
-                        // [과거 보존]: 입력값이 비어있던 과거 날짜는, 환경설정이 바뀌기 '전'의 기존 시간으로 명시적 데이터 생성(동적 변경 원천 차단)
                         if (!attendanceData[dStr]) {
-                            let dayOfWeek = curr.getDay();
                             let isHoli = isLegalHoliday(curr.getFullYear(), curr.getMonth(), curr.getDate());
                             let fallbackType = getBaseWorkType(curr.getFullYear(), curr.getMonth(), curr.getDate(), dayOfWeek, isHoli);
 
                             let st = ""; let et = "";
-                            if (fallbackType === "평일") { st = oldGlobal.startTime; et = oldGlobal.endTime; }
+                            if (fallbackType === "평일") {
+                                if (dayOfWeek === 5 && !oldGlobal.includeFriday) {
+                                    st = ""; et = "";
+                                } else {
+                                    st = oldGlobal.startTime; et = oldGlobal.endTime;
+                                }
+                            }
                             else if (fallbackType === "휴일근무") { st = oldHoliday.startTime; et = oldHoliday.endTime; }
                             else if (['조퇴','지각','오전','오후'].includes(fallbackType)) { st = REGULAR_HOURS[fallbackType].start; et = REGULAR_HOURS[fallbackType].end; }
                             
@@ -1317,11 +1342,16 @@
                             };
                         }
                     } else {
-                        // [미래 갱신]: 내일 이후 날짜 중, 수동으로 수정된 적 없는 껍데기 설정값들은 '새로운' 시간으로 덮어씌움
                         let saved = attendanceData[dStr];
                         if (saved && !saved.isCustomTimeModified) {
                             let type = saved.workType;
-                            if (type === '평일') { saved.startTime = newGlobal.startTime; saved.endTime = newGlobal.endTime; }
+                            if (type === '평일') { 
+                                if (dayOfWeek === 5 && !newGlobal.includeFriday) {
+                                    saved.startTime = ""; saved.endTime = "";
+                                } else {
+                                    saved.startTime = newGlobal.startTime; saved.endTime = newGlobal.endTime; 
+                                }
+                            }
                             else if (type === '휴일근무') { saved.startTime = newHoliday.startTime; saved.endTime = newHoliday.endTime; }
                             
                             let res = parseDailySheet(dStr, saved.workType, saved.startTime, saved.endTime);
@@ -1334,27 +1364,26 @@
                     curr.setDate(curr.getDate() + 1);
                 }
 
-                // 모든 처리가 끝난 후 새 설정값을 시스템 변수에 적용
                 globalConfig = newGlobal;
                 holidayConfig = newHoliday;
 
-                localStorage.setItem('global_work_config_v1.5', JSON.stringify(globalConfig));
-                localStorage.setItem('holiday_work_config_v1.5', JSON.stringify(holidayConfig));
-                localStorage.setItem('overtime_data_v1.5', JSON.stringify(attendanceData));
+                localStorage.setItem('global_work_config', JSON.stringify(globalConfig));
+                localStorage.setItem('holiday_work_config', JSON.stringify(holidayConfig));
+                localStorage.setItem('overtime_data', JSON.stringify(attendanceData));
 
                 globalConfigModal.classList.remove('open');
-                alert("환경설정이 반영되었습니다.\n\n※ 오늘 이전(과거 및 오늘) 데이터: 기존 설정 보존 완료\n※ 오늘 이후(내일~) 데이터: 새 기본시간 적용 완료");
+                alert("환경설정이 반영되었습니다.\n\n※ 오늘 이전(과거 및 오늘) 데이터: 기존 설정 보존 완료\n※ 오늘 이후(내일~) 데이터: 새 설정 적용 완료");
                 
                 renderCalendar();
                 updateDashboard();
             });
 
-            modalWorkTypeSelect.addEventListener('change', (e) => { applyTimeInputRules(e.target.value, selectedDateStr); updateModalLivePreview(); });
+            modalWorkTypeSelect.addEventListener('change', (e) => { applyTimeInputRules(e.target.value, selectedDateStr, selectedDayOfWeek); updateModalLivePreview(); });
             [startTimeInput, endTimeInput].forEach(inp => inp.addEventListener('input', () => updateModalLivePreview()));
 
             document.getElementById('btn-clear').addEventListener('click', () => {
                 if (attendanceData[selectedDateStr]) { delete attendanceData[selectedDateStr]; }
-                localStorage.setItem('overtime_data_v1.5', JSON.stringify(attendanceData));
+                localStorage.setItem('overtime_data', JSON.stringify(attendanceData));
                 timeModal.classList.remove('open'); renderCalendar(); updateDashboard();
             });
 
@@ -1368,20 +1397,12 @@
 
                 let pParts = selectedDateStr.split('-').map(Number);
                 let pDate = new Date(pParts[0], pParts[1]-1, pParts[2]);
-                
                 let dayOfWeek = pDate.getDay();
                 
-                let defaultStart = globalConfig.startTime;
-                let defaultEnd = globalConfig.endTime;
+                let defaults = getDefaultTimeForDay(modalWorkTypeSelect.value, dayOfWeek);
+                let defaultStart = defaults.start;
+                let defaultEnd = defaults.end;
                 
-                if (modalWorkTypeSelect.value === '휴일근무') {
-                    defaultStart = holidayConfig.startTime;
-                    defaultEnd = holidayConfig.endTime;
-                } else if (['조퇴','지각','오전','오후'].includes(modalWorkTypeSelect.value)) {
-                    defaultStart = REGULAR_HOURS[modalWorkTypeSelect.value].start;
-                    defaultEnd = REGULAR_HOURS[modalWorkTypeSelect.value].end;
-                }
-
                 let isTimeChanged = false;
                 if (pDate > todayMidnight) {
                     if (startTimeInput.value !== defaultStart || endTimeInput.value !== defaultEnd) {
@@ -1428,7 +1449,7 @@
                     }
                 }
                 
-                localStorage.setItem('overtime_data_v1.5', JSON.stringify(attendanceData));
+                localStorage.setItem('overtime_data', JSON.stringify(attendanceData));
                 timeModal.classList.remove('open'); renderCalendar(); updateDashboard();
             });
 
