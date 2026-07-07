@@ -125,7 +125,8 @@
         .day-cell.sun .num, .day-cell.holiday .num { color: #f87171; }
         .day-cell.sat .num { color: #60a5fa; }
 
-        .mini-type-tag { font-size: 0.63rem; padding: 1px 3px; border-radius: 4px; font-weight: 800; line-height: 1; text-align: center; max-width: 95%; overflow: hidden; white-space: nowrap; grid-row: 2; }
+        /* 대휴 등 타입 뱃지 크기 수정 */
+        .mini-type-tag { font-size: 0.63rem; padding: 1px 2px; border-radius: 4px; font-weight: 800; line-height: 1; text-align: center; max-width: 100%; overflow: hidden; white-space: nowrap; grid-row: 2; letter-spacing: -0.3px; }
         .bg-holiday-work { color: #90caf9; }
         [data-theme="light"] .bg-holiday-work { color: #0d47a1; }
         .bg-leave { color: #ffb74d; }
@@ -169,21 +170,21 @@
         .history-input { background: var(--app-bg); border: 1px solid var(--border-color); color: var(--text-white); padding: 3px; border-radius: 4px; width: 100%; font-size: 0.72rem; }
         .btn-mini-del { background: #ff4a4a; color: #fff; border: none; padding: 2px 5px; border-radius: 4px; cursor: pointer; font-size: 0.65rem; }
 
+        /* 스케줄 관리 한 줄 UI로 수정 */
         .config-table-container { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
-        .config-row { display: grid; grid-template-columns: 65px 1fr; gap: 6px; align-items: center; padding: 10px 4px; border-bottom: 1px solid var(--border-color); }
-        .config-main-controls { display: flex; flex-direction: column; gap: 6px; }
-        .config-main-controls-top { display: flex; gap: 4px; align-items: center; justify-content: space-between; }
-        .config-main-controls-bottom { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
-        .config-date-label { font-size: 0.8rem; font-weight: 600; }
-        .config-select { padding: 5px; font-size: 0.8rem; border-radius: 4px; background: var(--card-bg); color: var(--text-white); border: 1px solid var(--border-color); width: 85px; }
-        .daehyu-date-input { padding: 4px; font-size: 0.75rem; border-radius: 4px; background: var(--card-bg); color: var(--text-white); border: 1px solid var(--border-color); flex-grow: 1; }
-        .manual-ot-input { padding: 4px; width: 45px; font-size: 0.8rem; border-radius: 4px; background: var(--card-bg); color: var(--text-white); border: 1px solid var(--border-color); text-align: center; }
-        
-        .config-duty-block { display: flex; gap: 6px; background-color: rgba(255,255,255,0.02); padding: 4px 6px; border-radius: 6px; border: 1px dashed var(--border-color); }
+        .config-row { display: flex; flex-direction: column; gap: 6px; padding: 8px 2px; border-bottom: 1px solid var(--border-color); }
+        .config-row-main { display: flex; align-items: center; justify-content: space-between; gap: 4px; width: 100%; }
+        .config-date-label { font-size: 0.78rem; font-weight: 600; width: 62px; flex-shrink: 0; white-space: nowrap; overflow: hidden; letter-spacing: -0.5px; }
+        .config-select { padding: 4px; font-size: 0.75rem; border-radius: 4px; background: var(--card-bg); color: var(--text-white); border: 1px solid var(--border-color); width: 62px; flex-shrink: 0; }
+        .config-duty-block { display: flex; gap: 6px; background-color: rgba(255,255,255,0.02); padding: 4px; border-radius: 6px; border: 1px dashed var(--border-color); flex-grow: 1; justify-content: center; }
         .config-check-lbl { font-size: 0.78rem; display: flex; align-items: center; gap: 3px; color: var(--text-main); cursor: pointer; font-weight: bold; }
         .config-check-lbl input[type="checkbox"] { transform: scale(1.05); cursor: pointer; }
         .lbl-sook { color: #ff6b6b; }
         .lbl-il { color: #ffd166; }
+        .config-manual-wrap { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+        .manual-ot-input { padding: 3px; width: 36px; font-size: 0.75rem; border-radius: 4px; background: var(--card-bg); color: var(--text-white); border: 1px solid var(--border-color); text-align: center; }
+        .daehyu-line { width: 100%; display: flex; justify-content: flex-end; align-items: center; gap: 6px; margin-top: 2px; }
+        .daehyu-date-input { padding: 4px; font-size: 0.75rem; border-radius: 4px; background: var(--card-bg); color: var(--text-white); border: 1px solid var(--border-color); width: 130px; }
 
         .form-group { margin-bottom: 10px; }
         .form-group label { display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px; }
@@ -246,6 +247,7 @@
         </main>
     </div>
 
+    <!-- 모달 창 영역 시작 -->
     <div class="modal-overlay" id="report-modal">
         <div class="modal-content">
             <header class="modal-header">
@@ -329,7 +331,7 @@
                     <p class="preview-title">일일 변동 미리보기</p>
                     <div class="preview-grid">
                         <div>
-                            <span class="preview-label">초과 인정 (수기 포함)</span>
+                            <span class="preview-label">초과 인정 (수기 포함, 일4H한도)</span>
                             <span class="preview-value" style="color:var(--accent-color);" id="preview-overtime">0H 00M</span>
                         </div>
                         <div>
@@ -388,7 +390,19 @@
             </div>
 
             <div class="setting-base-box">
-                <div class="setting-base-title">③ 인사혁신처 연동 및 직급/단가 변경 이력</div>
+                <div class="setting-base-title" style="color: #f472b6;">③ 퇴근 알림 설정</div>
+                <div style="display:flex; gap:16px; align-items:center; padding: 4px 0;">
+                    <label style="font-size:0.8rem; color:var(--text-white); cursor:pointer; display:flex; align-items:center; gap:4px;">
+                        <input type="checkbox" id="global-cfg-noti15" style="transform: scale(1.1);"> 퇴근 15분 전
+                    </label>
+                    <label style="font-size:0.8rem; color:var(--text-white); cursor:pointer; display:flex; align-items:center; gap:4px;">
+                        <input type="checkbox" id="global-cfg-noti0" style="transform: scale(1.1);"> 퇴근 0분 전
+                    </label>
+                </div>
+            </div>
+
+            <div class="setting-base-box">
+                <div class="setting-base-title">④ 인사혁신처 연동 및 직급/단가 변경 이력</div>
                 <div style="max-height: 110px; overflow-y: auto; margin-bottom:6px;">
                     <table class="history-table">
                         <thead>
@@ -415,7 +429,7 @@
             </div>
 
             <div class="setting-base-box">
-                <div class="setting-base-title" style="color:#10b981;">④ 데이터 엑셀 1년 치 내보내기</div>
+                <div class="setting-base-title" style="color:#10b981;">⑤ 데이터 엑셀 1년 치 내보내기</div>
                 <div class="excel-selector-box" style="display:flex; gap:6px; align-items: center;">
                     <select id="export-year" style="flex: 1; padding:7px; font-size:0.82rem; border:1px solid var(--border-color); border-radius:6px;"></select>
                     <button type="button" id="btn-excel-export" class="btn btn-primary" style="flex: 1.2; padding:7px; font-size:0.82rem; background-color:#10b981; color:#fff; border-radius:6px; height: 35px;">전체 연도 다운로드</button>
@@ -423,7 +437,7 @@
             </div>
 
             <div class="setting-base-box">
-                <div class="setting-base-title" style="color:#a855f7;">⑤ 데이터 백업 및 복구 (.txt)</div>
+                <div class="setting-base-title" style="color:#a855f7;">⑥ 데이터 백업 및 복구 (.txt)</div>
                 <div style="display:flex; gap:6px;">
                     <button type="button" id="id-btn-txt-export" class="btn btn-outline" style="font-size:0.82rem; padding:7px; height: 35px; border-color: var(--border-color); color: var(--text-main);">내보내기</button>
                     <button type="button" id="id-btn-txt-import" class="btn btn-outline" style="font-size:0.82rem; padding:7px; height: 35px; border-color: var(--border-color); color: var(--text-main);">가져오기</button>
@@ -432,7 +446,7 @@
             </div>
 
             <div class="setting-base-box" style="margin-bottom:15px;">
-                <div class="setting-base-title">⑥ 화면 테마 설정</div>
+                <div class="setting-base-title">⑦ 화면 테마 설정</div>
                 <select id="theme-selector" style="padding:8px; font-size:0.85rem; color: var(--select-text-color) !important; background-color: var(--card-bg) !important;">
                     <option value="dark">다크 모드</option>
                     <option value="light">라이트 모드</option>
@@ -458,6 +472,7 @@
         let selectedDateStr = null;
         let selectedDayOfWeek = 0;
         let publicHolidaysCache = {}; 
+        let notifiedSet = new Set(); // 오늘 알림 발송 여부 기록
 
         const insaStandard = {
             "9": { hourly: 10949, holiday: 88017 },
@@ -516,7 +531,7 @@
         }
 
         let attendanceData = safeLoad('overtime_data', safeLoad('overtime_data_v1.5', {}));
-        let globalConfig = safeLoad('global_work_config', safeLoad('global_work_config_v1.5', { startTime: "04:10", endTime: "16:10", includeFriday: false }));
+        let globalConfig = safeLoad('global_work_config', safeLoad('global_work_config_v1.5', { startTime: "04:10", endTime: "16:10", includeFriday: false, noti15: false, noti0: false }));
         let holidayConfig = safeLoad('holiday_work_config', safeLoad('holiday_work_config_v1.5', { startTime: "03:45", endTime: "05:50" }));
         let currentTheme = localStorage.getItem('app_theme') || 'dark';
         let gradeHistory = safeLoad('user_grade_history', safeLoad('user_grade_history_v1.5', [
@@ -732,13 +747,13 @@
                 else if (['휴무', '연가', '대휴', '특가', '공가'].includes(activeType)) classDecorator = "bg-leave";
                 else if (['조퇴', '지각', '오전', '오후'].includes(activeType)) classDecorator = "bg-etc";
 
-                // 대휴 및 일반 뱃지 렌더링
+                // 대휴 및 뱃지 렌더링 방식 수정 (대휴 6/27 형태로 가독성 있게)
                 let displayTag = "";
                 if (activeType !== '평일') {
                     if (activeType === '대휴' && daehyuTarget) {
                         const parts = daehyuTarget.split('-');
                         if(parts.length === 3) {
-                            displayTag = `<span class="mini-type-tag ${classDecorator}">${activeType} <span style="font-size:0.5rem; font-weight:normal; opacity:0.9;">(${Number(parts[1])}/${Number(parts[2])})</span></span>`;
+                            displayTag = `<span class="mini-type-tag ${classDecorator}">${activeType} <span style="font-size:0.52rem; opacity:0.9; font-weight:500; margin-left:2px;">${Number(parts[1])}/${Number(parts[2])}</span></span>`;
                         } else {
                             displayTag = `<span class="mini-type-tag ${classDecorator}">${activeType}</span>`;
                         }
@@ -751,7 +766,8 @@
 
                 let metrics = parseDailySheet(dateStr, activeType, activeStart, activeEnd);
                 let manualMins = saved && saved.manualOvertimeMins ? saved.manualOvertimeMins : 0;
-                let totalMins = metrics.overtimeMins + manualMins;
+                // 일 한도 4시간(240분) 제한 적용
+                let totalMins = Math.min(240, metrics.overtimeMins + manualMins);
                 let timeText = totalMins > 0 ? `${Math.floor(totalMins/60)}H ${String(totalMins%60).padStart(2,'0')}M` : "";
                 
                 let midTimeHtml = timeText ? `<div class="day-mid-time">${timeText.replace(' ', '')}</div>` : `<div class="day-mid-time" style="visibility:hidden;">-</div>`;
@@ -810,7 +826,8 @@
 
                 let metrics = parseDailySheet(dStr, currentType, startVal, endVal);
                 let manualMins = saved && saved.manualOvertimeMins ? saved.manualOvertimeMins : 0;
-                let dayTotalMins = metrics.overtimeMins + manualMins;
+                // 일 한도 4시간 제한 합산
+                let dayTotalMins = Math.min(240, metrics.overtimeMins + manualMins);
                 let dayRate = getRateForDate(dStr); 
 
                 if (checkDate <= todayMidnight) { 
@@ -931,7 +948,8 @@
             let res = parseDailySheet(selectedDateStr, modalWorkTypeSelect.value, startTimeInput.value, endTimeInput.value);
             let saved = attendanceData[selectedDateStr];
             let manualMins = saved && saved.manualOvertimeMins ? saved.manualOvertimeMins : 0;
-            let totalMins = res.overtimeMins + manualMins;
+            // 일 한도 4시간 제한 적용
+            let totalMins = Math.min(240, res.overtimeMins + manualMins);
             let timeText = totalMins > 0 ? `${Math.floor(totalMins/60)}H ${String(totalMins%60).padStart(2,'0')}M` : "0H 00M";
             
             document.getElementById('preview-overtime').textContent = timeText;
@@ -966,38 +984,38 @@
                 if(dayOfWeek===0 || isHoli) textColor = "#f87171"; else if(dayOfWeek===6) textColor = "#60a5fa";
 
                 row.innerHTML = `
-                    <div class="config-date-label" style="color: ${textColor};">${d}일(${weekdaysText[dayOfWeek]})</div>
-                    <div class="config-main-controls">
-                        <div class="config-main-controls-top">
-                            <select class="config-select" style="color: var(--select-text-color) !important; background-color: var(--card-bg) !important;">
-                                <option value="평일" ${activeType==='평일'?'selected':''}>평일</option>
-                                <option value="휴일근무" ${activeType==='휴일근무'?'selected':''}>휴일근무</option>
-                                <option value="휴무" ${activeType==='휴무'?'selected':''}>휴무</option>
-                                <option value="대휴" ${activeType==='대휴'?'selected':''}>대휴</option>
-                                <option value="연가" ${activeType==='연가'?'selected':''}>연가</option>
-                                <option value="특가" ${activeType==='특가'?'selected':''}>특가</option>
-                                <option value="공가" ${activeType==='공가'?'selected':''}>공가</option>
-                                <option value="조퇴" ${activeType==='조퇴'?'selected':''}>조퇴</option>
-                                <option value="지각" ${activeType==='지각'?'selected':''}>지각</option>
-                                <option value="오후" ${activeType==='오후'?'selected':''}>오후</option>
-                                <option value="오전" ${activeType==='오전'?'selected':''}>오전</option>
-                            </select>
-                            <input type="date" class="daehyu-date-input" value="${daehyuTarget}" style="display:${activeType==='대휴'?'inline-block':'none'};" title="대휴 발생일">
+                    <div class="config-row-main">
+                        <div class="config-date-label" style="color: ${textColor};">${d}일(${weekdaysText[dayOfWeek]})</div>
+                        <select class="config-select" style="color: var(--select-text-color) !important; background-color: var(--card-bg) !important;">
+                            <option value="평일" ${activeType==='평일'?'selected':''}>평일</option>
+                            <option value="휴일근무" ${activeType==='휴일근무'?'selected':''}>휴일근무</option>
+                            <option value="휴무" ${activeType==='휴무'?'selected':''}>휴무</option>
+                            <option value="대휴" ${activeType==='대휴'?'selected':''}>대휴</option>
+                            <option value="연가" ${activeType==='연가'?'selected':''}>연가</option>
+                            <option value="특가" ${activeType==='특가'?'selected':''}>특가</option>
+                            <option value="공가" ${activeType==='공가'?'selected':''}>공가</option>
+                            <option value="조퇴" ${activeType==='조퇴'?'selected':''}>조퇴</option>
+                            <option value="지각" ${activeType==='지각'?'selected':''}>지각</option>
+                            <option value="오후" ${activeType==='오후'?'selected':''}>오후</option>
+                            <option value="오전" ${activeType==='오전'?'selected':''}>오전</option>
+                        </select>
+                        <div class="config-duty-block">
+                            <label class="config-check-lbl lbl-sook"><input type="checkbox" class="suk-chk" ${isSuk?'checked':''}> 숙직</label>
+                            <label class="config-check-lbl lbl-il"><input type="checkbox" class="il-chk" ${isIl?'checked':''}> 일직</label>
                         </div>
-                        <div class="config-main-controls-bottom">
-                            <div class="config-duty-block">
-                                <label class="config-check-lbl lbl-sook"><input type="checkbox" class="suk-chk" ${isSuk?'checked':''}> 숙직</label>
-                                <label class="config-check-lbl lbl-il"><input type="checkbox" class="il-chk" ${isIl?'checked':''}> 일직</label>
-                            </div>
-                            <div style="display:flex; align-items:center; gap:3px;">
-                                <span style="font-size:0.7rem; color:var(--text-muted);">수기</span>
-                                <input type="number" class="manual-ot-input" value="${manualMins}" min="0" step="1" placeholder="시간">
-                            </div>
+                        <div class="config-manual-wrap">
+                            <span style="font-size:0.7rem; color:var(--text-muted);">수기</span>
+                            <input type="number" class="manual-ot-input" value="${manualMins}" min="0" step="1">
                         </div>
+                    </div>
+                    <div class="daehyu-line" style="display:${activeType==='대휴'?'flex':'none'};">
+                        <span style="font-size:0.75rem; color:var(--text-muted);">대휴 발생일 선택:</span>
+                        <input type="date" class="daehyu-date-input" value="${daehyuTarget}">
                     </div>
                 `;
 
                 const configSelect = row.querySelector('.config-select');
+                const daehyuLine = row.querySelector('.daehyu-line');
                 const daehyuInput = row.querySelector('.daehyu-date-input');
                 const manualInput = row.querySelector('.manual-ot-input');
 
@@ -1009,8 +1027,13 @@
                     attendanceData[dStr].startTime = defaults.start;
                     attendanceData[dStr].endTime = defaults.end;
                     
-                    if(e.target.value === '대휴') daehyuInput.style.display = 'inline-block';
-                    else { daehyuInput.style.display = 'none'; attendanceData[dStr].daehyuTargetDate = ""; daehyuInput.value = ""; }
+                    if(e.target.value === '대휴') {
+                        daehyuLine.style.display = 'flex';
+                    } else { 
+                        daehyuLine.style.display = 'none'; 
+                        attendanceData[dStr].daehyuTargetDate = ""; 
+                        daehyuInput.value = ""; 
+                    }
                     
                     saveDataAndRefresh(dStr);
                 });
@@ -1032,7 +1055,6 @@
                     initDayContainer(dStr); 
                     attendanceData[dStr].isSukjik = e.target.checked; 
                     
-                    // 금요일 숙직 시 3시간 수기 초과 자동 입력
                     if (dayOfWeek === 5) {
                         if (e.target.checked) {
                             attendanceData[dStr].manualOvertimeMins = 180;
@@ -1045,7 +1067,6 @@
                         }
                     }
                     
-                    // 일~목 숙직 시 자동 대휴 발생일 지정 로직 추가
                     if (e.target.checked && dayOfWeek >= 0 && dayOfWeek <= 4) {
                         const nextDayNum = d + 1;
                         const nextDayDate = new Date(year, monthIdx, nextDayNum);
@@ -1055,10 +1076,9 @@
                                 const nextDStr = `${prefix}-${String(nextDayNum).padStart(2, '0')}`;
                                 initDayContainer(nextDStr, '대휴');
                                 attendanceData[nextDStr].workType = '대휴';
-                                attendanceData[nextDStr].daehyuTargetDate = dStr; // 발생일 세팅
+                                attendanceData[nextDStr].daehyuTargetDate = dStr; 
                                 attendanceData[nextDStr].startTime = ""; attendanceData[nextDStr].endTime = "";
                                 saveDataAndRefresh(nextDStr);
-                                // 현재 스케줄 모달을 새로고침하려면 여기서 모달 재오픈이 필요하지만, 가벼운 구현을 위해 창을 닫았다 여는 것으로 안내
                             }
                         }
                     }
@@ -1159,7 +1179,8 @@
                         let manM = saved.manualOvertimeMins || 0;
                         let manText = manM > 0 ? `${manM/60}H` : '';
 
-                        let totM = calcM + manM;
+                        // 일 한도 4시간 제한 합산 적용
+                        let totM = Math.min(240, calcM + manM);
                         let totText = totM > 0 ? `${Math.floor(totM/60)}H ${String(totM%60).padStart(2,'0')}M` : '';
 
                         csvContent += `${m}월 ${d}일,${saved.workType},${saved.startTime || ''},${saved.endTime || ''},${calcText},${manText},${totText},${saved.breakfast ? 'O':'X'},${saved.lunch ? 'O':'X'},${saved.isSukjik ? 'O':'X'},${saved.isIljik ? 'O':'X'},"${saved.memo || ''}",${saved.daehyuTargetDate || ''}\n`;
@@ -1210,6 +1231,8 @@
                             document.getElementById('global-cfg-friday-inc').checked = globalConfig.includeFriday || false;
                             document.getElementById('global-holiday-start').value = holidayConfig.startTime;
                             document.getElementById('global-holiday-end').value = holidayConfig.endTime;
+                            document.getElementById('global-cfg-noti15').checked = globalConfig.noti15 || false;
+                            document.getElementById('global-cfg-noti0').checked = globalConfig.noti0 || false;
 
                             gradeHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
                             renderGradeHistoryTable();
@@ -1229,6 +1252,18 @@
                 document.documentElement.setAttribute('data-theme', currentTheme);
                 saveStorage();
             });
+            
+            // 알림 권한 획득 처리
+            document.getElementById('global-cfg-noti15').addEventListener('change', (e) => {
+                if(e.target.checked && "Notification" in window && Notification.permission !== "granted") {
+                    Notification.requestPermission();
+                }
+            });
+            document.getElementById('global-cfg-noti0').addEventListener('change', (e) => {
+                if(e.target.checked && "Notification" in window && Notification.permission !== "granted") {
+                    Notification.requestPermission();
+                }
+            });
 
             document.getElementById('btn-save-global-settings').addEventListener('click', () => {
                 currentTheme = themeSelector.value;
@@ -1240,7 +1275,9 @@
                 const newGlobal = { 
                     startTime: document.getElementById('global-cfg-start').value, 
                     endTime: document.getElementById('global-cfg-end').value,
-                    includeFriday: document.getElementById('global-cfg-friday-inc').checked
+                    includeFriday: document.getElementById('global-cfg-friday-inc').checked,
+                    noti15: document.getElementById('global-cfg-noti15').checked,
+                    noti0: document.getElementById('global-cfg-noti0').checked
                 };
                 const newHoliday = { 
                     startTime: document.getElementById('global-holiday-start').value, 
@@ -1378,6 +1415,45 @@
                 refreshUI(); 
             });
         }
+        
+        function fireNotification(msg) {
+            if ("Notification" in window && Notification.permission === "granted") {
+                new Notification('근무관리 알림', { body: msg, icon: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png' });
+            } else {
+                alert(msg); // fallback
+            }
+        }
+
+        function startNotificationChecker() {
+            setInterval(() => {
+                if (!globalConfig.noti15 && !globalConfig.noti0) return;
+                const now = new Date();
+                const dStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+                const todayData = attendanceData[dStr];
+                
+                if (todayData && todayData.endTime) {
+                    const [eh, em] = todayData.endTime.split(':').map(Number);
+                    const endMins = eh * 60 + em;
+                    const curMins = now.getHours() * 60 + now.getMinutes();
+                    const diff = endMins - curMins;
+                    
+                    if (globalConfig.noti15 && diff === 15) {
+                        let key = dStr + '-15';
+                        if (!notifiedSet.has(key)) {
+                            fireNotification('퇴근 15분 전입니다!');
+                            notifiedSet.add(key);
+                        }
+                    }
+                    if (globalConfig.noti0 && diff === 0) {
+                        let key = dStr + '-0';
+                        if (!notifiedSet.has(key)) {
+                            fireNotification('퇴근 시간입니다! 수고하셨습니다.');
+                            notifiedSet.add(key);
+                        }
+                    }
+                }
+            }, 30000); // 30초마다 체크
+        }
 
         function init() {
             document.documentElement.setAttribute('data-theme', currentTheme);
@@ -1388,12 +1464,15 @@
             document.getElementById('global-cfg-friday-inc').checked = globalConfig.includeFriday || false;
             document.getElementById('global-holiday-start').value = holidayConfig.startTime;
             document.getElementById('global-holiday-end').value = holidayConfig.endTime;
+            document.getElementById('global-cfg-noti15').checked = globalConfig.noti15 || false;
+            document.getElementById('global-cfg-noti0').checked = globalConfig.noti0 || false;
             
             buildExcelSelectors();
             renderGradeHistoryTable();
             
             setupEventListeners();
             setupSwipeGestures();
+            startNotificationChecker();
 
             document.getElementById('new-hist-grade').addEventListener('change', (e) => {
                 let grade = e.target.value;
