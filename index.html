@@ -172,14 +172,14 @@
         .config-table-container { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
         .config-row { display: grid; grid-template-columns: 52px 1fr; gap: 4px; align-items: center; padding: 8px 4px; border-bottom: 1px solid var(--border-color); }
         .config-main-controls { display: flex; flex-direction: column; width: 100%; }
-        .config-main-controls-top { display: flex; gap: 2px; align-items: center; justify-content: space-between; width: 100%; }
+        .config-main-controls-top { display: flex; gap: 2px; align-items: center; justify-content: space-between; width: 100%; flex-wrap: wrap; }
         
         .config-date-label { font-size: 0.8rem; font-weight: 600; }
-        .config-select { padding: 5px; font-size: 0.8rem; border-radius: 4px; background: var(--card-bg); color: var(--text-white); border: 1px solid var(--border-color); }
+        .config-select { padding: 5px; font-size: 0.8rem; border-radius: 4px; background: var(--card-bg); color: var(--text-white); border: 1px solid var(--border-color); flex: 1.5; }
         .daehyu-date-input { padding: 4px; font-size: 0.75rem; border-radius: 4px; background: var(--card-bg); color: var(--text-white); border: 1px solid var(--border-color); }
         .manual-ot-input { padding: 4px; font-size: 0.8rem; border-radius: 4px; background: var(--card-bg); color: var(--text-white); border: 1px solid var(--border-color); text-align: center; }
         
-        .config-duty-block { display: flex; gap: 6px; background-color: rgba(255,255,255,0.02); border-radius: 6px; border: 1px dashed var(--border-color); }
+        .config-duty-block { display: flex; gap: 6px; background-color: rgba(255,255,255,0.02); border-radius: 6px; border: 1px dashed var(--border-color); padding: 2px 4px; flex: 0.8; }
         .config-check-lbl { font-size: 0.78rem; display: flex; align-items: center; gap: 3px; color: var(--text-main); cursor: pointer; font-weight: bold; }
         .config-check-lbl input[type="checkbox"] { transform: scale(1.05); cursor: pointer; }
         .lbl-sook { color: #ff6b6b; }
@@ -348,21 +348,24 @@
     </div>
 
     <div class="modal-overlay" id="config-list-modal">
-        <div class="modal-content">
-            <header class="modal-header">
+        <div class="modal-content" style="display:flex; flex-direction:column;">
+            <header class="modal-header" style="flex-shrink:0;">
                 <div><h3 style="font-size:0.95rem; color:var(--text-white);">스케줄 관리 (근무 및 수기초과)</h3></div>
-                <span class="material-symbols-outlined close-btn" id="close-config-modal">close</span>
             </header>
-            <div class="config-table-container" id="config-rows-injector"></div>
+            <div class="config-table-container" id="config-rows-injector" style="flex:1; overflow-y:auto;"></div>
+            <div style="flex-shrink:0; padding-top:12px; border-top:1px solid var(--border-color);">
+                <button type="button" class="btn btn-primary" id="close-config-modal" style="width:100%;">닫기</button>
+            </div>
         </div>
     </div>
 
     <div class="modal-overlay" id="global-config-modal">
-        <div class="modal-content">
-            <header class="modal-header">
+        <div class="modal-content" style="display:flex; flex-direction:column;">
+            <header class="modal-header" style="flex-shrink:0;">
                 <h3 style="font-size:0.95rem; color:var(--text-white);">시스템 환경설정</h3>
                 <span class="material-symbols-outlined close-btn" id="close-global-modal">close</span>
             </header>
+            <div style="flex:1; overflow-y:auto;">
 
             <div class="setting-base-box">
                 <div class="setting-base-title" style="color: #ffd166; display:flex; justify-content:space-between; align-items:center;">
@@ -438,8 +441,10 @@
                     <option value="light">라이트 모드</option>
                 </select>
             </div>
-
-            <button type="button" id="btn-save-global-settings" class="btn btn-primary" style="width:100%;">설정 완료 및 저장</button>
+            </div>
+            <div style="flex-shrink:0; padding-top:12px; border-top:1px solid var(--border-color);">
+                <button type="button" id="btn-save-global-settings" class="btn btn-primary" style="width:100%;">설정 완료 및 저장</button>
+            </div>
         </div>
     </div>
 
@@ -515,11 +520,11 @@
             updateDashboard();
         }
 
-        let attendanceData = safeLoad('overtime_data', safeLoad('overtime_data_v1.5', {}));
-        let globalConfig = safeLoad('global_work_config', safeLoad('global_work_config_v1.5', { startTime: "04:10", endTime: "16:10", includeFriday: false }));
-        let holidayConfig = safeLoad('holiday_work_config', safeLoad('holiday_work_config_v1.5', { startTime: "03:45", endTime: "05:50" }));
+        let attendanceData = safeLoad('overtime_data', safeLoad('overtime_data_v1.0', {}));
+        let globalConfig = safeLoad('global_work_config', safeLoad('global_work_config_v1.0', { startTime: "04:10", endTime: "16:10", includeFriday: false }));
+        let holidayConfig = safeLoad('holiday_work_config', safeLoad('holiday_work_config_v1.0', { startTime: "03:45", endTime: "05:50" }));
         let currentTheme = localStorage.getItem('app_theme') || 'dark';
-        let gradeHistory = safeLoad('user_grade_history', safeLoad('user_grade_history_v1.5', [
+        let gradeHistory = safeLoad('user_grade_history', safeLoad('user_grade_history_v1.0', [
             { date: "2026-01-01", grade: "9", hourly: 10949, holiday: 88017 }
         ]));
 
@@ -738,7 +743,7 @@
                     if (activeType === '대휴' && daehyuTarget) {
                         const parts = daehyuTarget.split('-');
                         if(parts.length === 3) {
-                            displayTag = `<span class="mini-type-tag ${classDecorator}">${activeType} <span style="font-size:0.55rem; font-weight:normal; opacity:0.9;">${Number(parts[1])}/${Number(parts[2])}</span></span>`;
+                            displayTag = `<span class="mini-type-tag ${classDecorator}" style="font-size:0.55rem;">${activeType} <span style="font-size:0.48rem; font-weight:normal; opacity:0.9;">${Number(parts[1])}/${Number(parts[2])}</span></span>`;
                         } else {
                             displayTag = `<span class="mini-type-tag ${classDecorator}">${activeType}</span>`;
                         }
@@ -987,7 +992,7 @@
                             </div>
                             <div style="display:flex; align-items:center; gap:2px;">
                                 <span style="font-size:0.65rem; color:var(--text-muted);">수기</span>
-                                <input type="number" class="manual-ot-input" value="${manualMins}" min="0" step="1" placeholder="H" style="width: 32px; padding:3px; font-size:0.75rem;">
+                                <input type="number" class="manual-ot-input" value="${manualMins}" min="0" max="4" step="0.5" placeholder="H" style="width: 40px; padding:3px; font-size:0.75rem;">
                             </div>
                         </div>
                         <input type="date" class="daehyu-date-input" value="${daehyuTarget}" style="display:${activeType==='대휴'?'block':'none'}; width:100%; margin-top:4px; padding:4px;" title="대휴 발생일">
@@ -1021,7 +1026,9 @@
                 manualInput.addEventListener('change', (e) => {
                     initDayContainer(dStr);
                     let val = parseFloat(e.target.value);
-                    attendanceData[dStr].manualOvertimeMins = isNaN(val) ? 0 : val * 60;
+                    let capped = Math.min(val, 4);
+                    attendanceData[dStr].manualOvertimeMins = isNaN(capped) ? 0 : capped * 60;
+                    manualInput.value = capped;
                     saveDataAndRefresh(dStr);
                 });
 
@@ -1288,7 +1295,6 @@
                 globalConfig = newGlobal; holidayConfig = newHoliday;
                 saveStorage();
                 globalConfigModal.classList.remove('open');
-                alert("환경설정이 완벽하게 저장 및 유효 데이터 범위에 반영되었습니다.");
                 refreshUI();
             });
 
