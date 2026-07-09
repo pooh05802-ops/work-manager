@@ -100,7 +100,10 @@
             cursor: pointer; border: 2px solid transparent; position: relative; overflow: hidden;
         }
         .day-cell.empty { background-color: transparent; cursor: default; border: none; display: block; }
-        .day-cell.today-match { border: 2px solid var(--accent-color) !important; box-shadow: 0 0 6px rgba(0, 240, 255, 0.3); }
+        
+        /* 오늘 날짜 테두리 10% 진하게 및 우선순위 강화 */
+        .day-cell.today-match { border: 2px solid #00d8e6 !important; box-shadow: 0 0 6px rgba(0, 216, 230, 0.3); background-image: none !important; z-index: 2; }
+        [data-theme="light"] .day-cell.today-match { border: 2px solid #026ba1 !important; box-shadow: 0 0 6px rgba(2, 107, 161, 0.3); background-image: none !important; }
         
         .day-cell.future-time-modified {
             border: none !important;
@@ -128,7 +131,7 @@
         .mini-type-tag { font-size: 0.63rem; padding: 1px 3px; border-radius: 4px; font-weight: 800; line-height: 1; text-align: center; max-width: 95%; overflow: hidden; white-space: nowrap; grid-row: 2; }
         .bg-holiday-work { color: #90caf9; }
         [data-theme="light"] .bg-holiday-work { color: #0d47a1; }
-        .bg-leave { color: #ffb74d; cursor: pointer; } /* 대휴 등 휴무 터치 반응형 */
+        .bg-leave { color: #ffb74d; cursor: pointer; } 
         [data-theme="light"] .bg-leave { color: #e65100; cursor: pointer; }
         .bg-etc { color: #e1bee7; }
         [data-theme="light"] .bg-etc { color: #4a148c; }
@@ -179,7 +182,6 @@
         .daehyu-date-input { padding: 4px; font-size: 0.75rem; border-radius: 4px; background: var(--card-bg); color: var(--text-white); border: 1px solid var(--border-color); }
         .manual-ot-input { padding: 4px; font-size: 0.8rem; border-radius: 4px; background: var(--card-bg); color: var(--text-white); border: 1px solid var(--border-color); text-align: center; }
         
-        /* 5. [ ] 숙 [ ] 일 UI 슬림화 반영 (가로 한 줄 배치) */
         .config-duty-block { display: flex; align-items: center; gap: 8px; background-color: rgba(255,255,255,0.02); border-radius: 6px; border: 1px dashed var(--border-color); padding: 4px 6px; flex: 1; justify-content: center; }
         .config-check-lbl { font-size: 0.8rem; display: flex; align-items: center; gap: 3px; color: var(--text-main); cursor: pointer; font-weight: bold; }
         .config-check-lbl input[type="checkbox"] { transform: scale(1.1); cursor: pointer; margin: 0; }
@@ -472,7 +474,7 @@
         // ==========================================
         const systemToday = new Date(); 
         const todayMidnight = new Date(systemToday.getFullYear(), systemToday.getMonth(), systemToday.getDate());
-        todayMidnight.setHours(0,0,0,0); // 오늘 자정 00:00 분기점
+        todayMidnight.setHours(0,0,0,0); 
         
         const limitMinDate = new Date(2026, 5, 1); 
         let initialViewDate = systemToday < limitMinDate ? limitMinDate : systemToday;
@@ -482,6 +484,7 @@
         let selectedDayOfWeek = 0;
         let publicHolidaysCache = {}; 
         let activeDaehyuSourceStr = "";
+        let activeMoveTypeStr = ""; // 범용 휴무이동 타입 저장
 
         const insaStandard = {
             "9": { hourly: 10949, holiday: 88017 },
@@ -547,14 +550,11 @@
             { date: "2026-01-01", grade: "9", hourly: 10949, holiday: 88017 }
         ]));
 
-        // [1] 시스템 켜져있는 동안 자정(00:00) 자동 새로고침(오늘 날짜 파란 테두리 이동)
         function setupMidnightRefresh() {
             const now = new Date();
-            const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 1, 0); // 다음날 00:00:01
+            const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 1, 0); 
             const diff = nextMidnight.getTime() - now.getTime();
-            setTimeout(() => {
-                location.reload();
-            }, diff);
+            setTimeout(() => { location.reload(); }, diff);
         }
 
         // ==========================================
@@ -585,6 +585,13 @@
             return false;
         }
 
+        // 원복 시 사용하는 엄격한 표준 달력 기준 근무타입 (전일 숙직 영향 무시)
+        function getStrictBaseWorkType(year, month, day, dayOfWeek, isHoli) {
+            if (dayOfWeek === 0) return '휴무';
+            if (dayOfWeek === 6 || isHoli) return '휴일근무';
+            return '평일';
+        }
+
         function getBaseWorkType(year, month, day, dayOfWeek, isHoli) {
             const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
             if (attendanceData[dateStr] && attendanceData[dateStr].workType) return attendanceData[dateStr].workType;
@@ -592,6 +599,7 @@
             const prevDate = new Date(year, month, day - 1);
             const prevStr = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}-${String(prevDate.getDate()).padStart(2, '0')}`;
             
+            // 기존 묵시적 대휴처리 (데이터 없을시)
             if (attendanceData[prevStr] && attendanceData[prevStr].isSukjik) {
                 if (prevDate.getDay() >= 0 && prevDate.getDay() <= 4) {
                     if (!isHoli && dayOfWeek !== 6 && dayOfWeek !== 0) {
@@ -602,13 +610,26 @@
                     }
                 }
             }
-            if (dayOfWeek === 0) return '휴무'; 
-            if (dayOfWeek === 6 || isHoli) return '휴일근무'; 
-            return '평일';
+            return getStrictBaseWorkType(year, month, day, dayOfWeek, isHoli);
+        }
+
+        // 특정 날짜의 휴가/휴무 상태를 표준 기본값으로 원복
+        function revertDayToDefault(dateStr) {
+            const parts = dateStr.split('-');
+            const cDate = new Date(parts[0], parts[1]-1, parts[2]);
+            const isHoli = isLegalHoliday(cDate.getFullYear(), cDate.getMonth(), cDate.getDate());
+            const strictType = getStrictBaseWorkType(cDate.getFullYear(), cDate.getMonth(), cDate.getDate(), cDate.getDay(), isHoli);
+
+            attendanceData[dateStr].workType = strictType;
+            attendanceData[dateStr].daehyuTargetDate = "";
+            let def = getDefaultTimeForDay(strictType, cDate.getDay());
+            attendanceData[dateStr].startTime = def.start;
+            attendanceData[dateStr].endTime = def.end;
+            attendanceData[dateStr].isCustomTimeModified = false;
         }
 
         // ==========================================
-        // 4. CORE BUSINESS LOGIC (4. 초과근무 및 급량비 분 단위 정밀 로직)
+        // 4. CORE BUSINESS LOGIC (초과근무 및 급량비 분 단위 정밀 로직)
         // ==========================================
         function getRateForDate(dateStr) {
             let target = new Date(dateStr);
@@ -631,10 +652,17 @@
             const [sH, sM] = startVal.split(':').map(Number);
             const [eH, eM] = endVal.split(':').map(Number);
             
-            // 분(Minute) 단위 타임스탬프 변환
             let startMins = sH * 60 + sM;
             let endMins = eH * 60 + eM;
-            if (endMins < startMins) endMins += 24 * 60; // 자정 넘김 처리
+            if (endMins < startMins) endMins += 24 * 60; 
+
+            // 초과근무 한도 범위 강제 제한 (03:30 ~ 19:00, 숙직은 18:00)
+            let isSuk = false;
+            if (attendanceData[dateStr] && attendanceData[dateStr].isSukjik) isSuk = true;
+            
+            let effStartMins = Math.max(startMins, 3 * 60 + 30); 
+            let effEndMins = Math.min(endMins, isSuk ? 18 * 60 : 19 * 60);
+            if (effEndMins < effStartMins) effEndMins = effStartMins;
 
             const isWeekdayType = ['평일', '조퇴', '지각', '오전', '오후'].includes(workType);
 
@@ -648,33 +676,31 @@
                 let earlyOver = 0;
                 let lateOver = 0;
 
-                // 평일 조식비(☕) 및 새벽 초과: 05:00 이하 정각 (300분) 출근 시에만 카운트. 05:01 이후는 모두 나가리.
+                // 조식 및 급량비는 실 근무시간 기준으로 체크유지 (기존로직 준수)
                 if (startMins <= 300) {
                     breakfast = 1;
-                    earlyOver = Math.max(0, regStartMins - startMins);
+                    earlyOver = Math.max(0, regStartMins - effStartMins);
                 }
-
-                // 평일 오후 초과 및 급량비(🍱): 16:00 이상 (960분) 퇴근 시에만 카운트. 16시 미만은 모두 나가리.
                 if (endMins >= 960) {
                     lunch = 1;
-                    lateOver = Math.max(0, endMins - regEndMins);
+                    lateOver = Math.max(0, effEndMins - regEndMins);
                 }
 
                 let totalAutoOver = earlyOver + lateOver;
                 if (totalAutoOver > 60) {
-                    overtimeMins = totalAutoOver - 60; // 1시간 공제 후 합산
+                    overtimeMins = totalAutoOver - 60; 
                 }
             } 
             else if (workType === '휴일근무') {
-                let totalWorkMins = endMins - startMins;
-                if(totalWorkMins < 0) totalWorkMins = 0;
-
-                // 휴일 1시간 공제 없음, 총 4시간(240분) 한도
-                overtimeMins = Math.min(240, totalWorkMins); 
+                let actualWorkMins = endMins - startMins;
+                if (actualWorkMins < 0) actualWorkMins = 0;
                 
-                // 휴일 조식비는 무조건 0회, 급량비는 총 2시간(120분) 이상일 때만 1회 지급
+                let effectiveWorkMins = effEndMins - effStartMins;
+                if (effectiveWorkMins < 0) effectiveWorkMins = 0;
+
+                overtimeMins = Math.min(240, effectiveWorkMins); 
                 breakfast = 0;
-                lunch = totalWorkMins >= 120 ? 1 : 0;
+                lunch = actualWorkMins >= 120 ? 1 : 0;
             }
 
             return { overtimeMins, breakfast, lunch };
@@ -770,18 +796,28 @@
                 else if (['휴무', '연가', '대휴', '특가', '공가'].includes(activeType)) classDecorator = "bg-leave";
                 else if (['조퇴', '지각', '오전', '오후'].includes(activeType)) classDecorator = "bg-etc";
 
-                // [3] 모바일 최적화 대휴(Off) 터치 이동 기능
+                // 고정된 대휴 여부 동적 판단
+                let isFixed = false;
+                if (activeType === '대휴') {
+                    let prevDate = new Date(year, month, day - 1);
+                    let pStr = `${prevDate.getFullYear()}-${String(prevDate.getMonth()+1).padStart(2,'0')}-${String(prevDate.getDate()).padStart(2,'0')}`;
+                    if (attendanceData[pStr] && attendanceData[pStr].isSukjik && dayOfWeek !== 0 && dayOfWeek !== 6 && !isHoli) {
+                        isFixed = true;
+                    }
+                }
+
+                // 모바일 최적화 휴무/휴일 이동 기능 확장 반영
                 let displayTag = "";
                 if (activeType !== '평일') {
                     if (activeType === '대휴' && daehyuTarget) {
                         const parts = daehyuTarget.split('-');
                         if(parts.length === 3) {
-                            displayTag = `<span class="mini-type-tag ${classDecorator}" data-daehyu-from="${dateStr}" style="font-size:0.55rem; cursor:pointer;">${activeType} <span style="font-size:0.43rem; font-weight:normal; opacity:0.9; letter-spacing:-0.5px;">${Number(parts[1])}/${Number(parts[2])}</span></span>`;
+                            displayTag = `<span class="mini-type-tag ${classDecorator}" data-move-from="${dateStr}" data-move-type="${activeType}" style="font-size:0.55rem; ${isFixed ? '' : 'cursor:pointer;'}">${activeType} <span style="font-size:0.43rem; font-weight:normal; opacity:0.9; letter-spacing:-0.5px;">${Number(parts[1])}/${Number(parts[2])}</span></span>`;
                         } else {
-                            displayTag = `<span class="mini-type-tag ${classDecorator}" data-daehyu-from="${dateStr}" style="cursor:pointer;">${activeType}</span>`;
+                            displayTag = `<span class="mini-type-tag ${classDecorator}" data-move-from="${dateStr}" data-move-type="${activeType}" style="${isFixed ? '' : 'cursor:pointer;'}">${activeType}</span>`;
                         }
                     } else {
-                        displayTag = `<span class="mini-type-tag ${classDecorator}" ${activeType === '대휴' ? `data-daehyu-from="${dateStr}" style="cursor:pointer;"` : ''}>${activeType}</span>`;
+                        displayTag = `<span class="mini-type-tag ${classDecorator}" data-move-from="${dateStr}" data-move-type="${activeType}" style="${isFixed ? '' : 'cursor:pointer;'}">${activeType}</span>`;
                     }
                 } else {
                     displayTag = '<span class="mini-type-tag" style="visibility:hidden;">평일</span>';
@@ -790,13 +826,12 @@
                 let metrics = parseDailySheet(dateStr, activeType, activeStart, activeEnd);
                 let manualMins = saved && saved.manualOvertimeMins ? saved.manualOvertimeMins : 0;
                 
-                // [2] 금요일 숙직자 특례 자동 계산 (렌더링 시 강제 적용)
                 if (dayOfWeek === 5 && isSuk) {
                     manualMins = 180;
                     metrics.lunch = 1;
                 }
 
-                let totalMins = Math.min(metrics.overtimeMins + manualMins, 240); // 일 4시간(240분) 한도 적용
+                let totalMins = Math.min(metrics.overtimeMins + manualMins, 240); 
                 let timeText = totalMins > 0 ? `${Math.floor(totalMins/60)}H ${String(totalMins%60).padStart(2,'0')}M` : "";
                 
                 let midTimeHtml = timeText ? `<div class="day-mid-time">${timeText.replace(' ', '')}</div>` : `<div class="day-mid-time" style="visibility:hidden;">-</div>`;
@@ -818,21 +853,22 @@
                     </div>
                 `;
 
-                // 대휴 태그 터치 시 이동 모달 호출
-                const daehyuTag = dayCell.querySelector('[data-daehyu-from]');
-                if (daehyuTag) {
-                    daehyuTag.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        openDaehyuMovePopup(dateStr);
-                    });
-                }
+                // 일반 휴가 및 이동형 모달 바인딩 (고정대휴 제외)
+                const moveTags = dayCell.querySelectorAll('[data-move-from]');
+                moveTags.forEach(tag => {
+                    if (!isFixed || tag.getAttribute('data-move-type') !== '대휴') {
+                        tag.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            openDaehyuMovePopup(dateStr, tag.getAttribute('data-move-type'));
+                        });
+                    }
+                });
 
                 dayCell.addEventListener('click', () => openTimeModal(dateStr, day, dayOfWeek, isHoli));
                 daysGrid.appendChild(dayCell);
             }
         }
 
-        // [1] 현재 실적 vs 초과 예상 데이터 집계 분리
         function updateDashboard() {
             const year = currentDate.getFullYear();
             const monthIdx = currentDate.getMonth();
@@ -868,16 +904,14 @@
                 let metrics = parseDailySheet(dStr, currentType, startVal, endVal);
                 let manualMins = saved && saved.manualOvertimeMins ? saved.manualOvertimeMins : 0;
                 
-                // [2] 금요일 숙직자 특례 집계 연동
                 if (dayOfWeek === 5 && isSuk) {
                     manualMins = 180;
                     metrics.lunch = 1;
                 }
 
-                let dayTotalMins = Math.min(metrics.overtimeMins + manualMins, 240); // 일 4시간(240분) 한도 적용
+                let dayTotalMins = Math.min(metrics.overtimeMins + manualMins, 240); 
                 let dayRate = getRateForDate(dStr); 
 
-                // 오늘 자정(00:00) 기준 실적(어제까지)과 예상(오늘이후) 엄격 분리
                 if (checkDate < todayMidnight) { 
                     actualOvertimeMins += dayTotalMins; 
                     if (d <= 15) actBf1 += metrics.breakfast; else actBf2 += metrics.breakfast;
@@ -898,10 +932,9 @@
                 else if (['휴무', '연가', '대휴', '특가', '공가'].includes(currentType)) countHuumu++;
             }
 
-            // 어제까지 확정된 실적(최대 50시간 캡)
             let cappedActualMins = Math.min(actualOvertimeMins, 50 * 60); 
-            // 최종 예상 = [어제까지 실적] + [오늘 이후 예상] -> 이 합산 결과도 50시간 한도 적용
-            let totalPredictedMins = Math.min(cappedActualMins + predictedOvertimeMins, 50 * 60);
+            // 예상시간 제한 해제 적용
+            let totalPredictedMins = cappedActualMins + predictedOvertimeMins;
 
             document.getElementById('dash-total-overtime').textContent = `${Math.floor(cappedActualMins / 60)}H ${String(cappedActualMins % 60).padStart(2, '0')}M`;
             document.getElementById('dash-predicted-overtime').textContent = `(예상 ${Math.floor(totalPredictedMins / 60)}h${String(totalPredictedMins % 60).padStart(2, '0')}m)`;
@@ -922,7 +955,6 @@
             document.getElementById('rep-bf1-val').textContent = `${bf1Count}개 = ${(bf1Count * 9000).toLocaleString()}원`;
             document.getElementById('rep-bf2-val').textContent = `${bf2Count}개 = ${(bf2Count * 9000).toLocaleString()}원`;
             
-            // 급량비 월 20개 한도 엄격 적용
             let limitedLunchCount = Math.min(rawLunchCount, 20);
             document.getElementById('rep-lunch-val-summary').textContent = `${rawLunchCount}개 / 20개 한도 = ${(limitedLunchCount * 9000).toLocaleString()}원`;
         }
@@ -987,7 +1019,6 @@
             startTimeInput.disabled = false; endTimeInput.disabled = false;
             let saved = targetDateStr ? attendanceData[targetDateStr] : null;
 
-            // [5] 시간 삭제(공백) 동기화 해결
             if (saved && saved.isCustomTimeModified) {
                 startTimeInput.value = saved.startTime || "";
                 endTimeInput.value = saved.endTime || "";
@@ -1006,7 +1037,6 @@
             let saved = attendanceData[selectedDateStr];
             let manualMins = saved && saved.manualOvertimeMins ? saved.manualOvertimeMins : 0;
             
-            // 금요일 숙직 특례 프리뷰 보정
             if (selectedDayOfWeek === 5 && saved && saved.isSukjik) {
                 manualMins = 180;
                 res.lunch = 1;
@@ -1019,11 +1049,14 @@
             document.getElementById('preview-meals').textContent = modalWorkTypeSelect.value === '휴일근무' ? `급량 ${res.lunch} (조식 0)` : `조식 ${res.breakfast} / 급량 ${res.lunch}`;
         }
 
-        // [3] 대휴 이동 모바일 모달 렌더링 및 기능 연결
-        function openDaehyuMovePopup(fromKey) {
+        // 범용 모바일 모달 렌더링
+        function openDaehyuMovePopup(fromKey, moveType = '대휴') {
             activeDaehyuSourceStr = fromKey;
+            activeMoveTypeStr = moveType;
             const currentDay = fromKey.split('-')[2];
-            document.getElementById('move-off-desc').textContent = `${currentDay}일의 대휴 스케줄을 재배치할 날짜를 선택하세요.`;
+            document.querySelector('#modal-move-off .modal-header h3').textContent = `${moveType} 이동 (날짜 변경)`;
+            document.getElementById('move-off-desc').textContent = `${currentDay}일의 ${moveType} 스케줄을 재배치할 날짜를 선택하세요.`;
+            document.getElementById('btn-remove-off-item').textContent = `${moveType} 삭제`;
 
             const select = document.getElementById('move-off-date-select');
             select.innerHTML = '';
@@ -1041,6 +1074,35 @@
                 select.appendChild(opt);
             }
             document.getElementById('modal-move-off').classList.add('open');
+        }
+
+        // 대휴 4주이내 가장 늦은날 찾기 헬퍼 (연가 등 점유시 회피)
+        function findLatestAvailableWeekday(startDateStr) {
+            let parts = startDateStr.split('-');
+            let y = parseInt(parts[0]), m = parseInt(parts[1]) - 1, d = parseInt(parts[2]);
+            let bestStr = null;
+            for (let i = 28; i >= 1; i--) {
+                let temp = new Date(y, m, d + i);
+                let ty = temp.getFullYear(), tm = temp.getMonth(), td = temp.getDate();
+                let tDay = temp.getDay();
+                if (tDay === 0 || tDay === 6) continue;
+                if (isLegalHoliday(ty, tm, td)) continue;
+                
+                let tStr = `${ty}-${String(tm+1).padStart(2,'0')}-${String(td).padStart(2,'0')}`;
+                let saved = attendanceData[tStr];
+                let type = saved ? saved.workType : '평일';
+                
+                if (type === '평일' || type === '') {
+                    // 고정된 숙직 익일이면 건너뜀
+                    let ptDate = new Date(ty, tm, td - 1);
+                    let ptStr = `${ptDate.getFullYear()}-${String(ptDate.getMonth()+1).padStart(2,'0')}-${String(ptDate.getDate()).padStart(2,'0')}`;
+                    if (attendanceData[ptStr] && attendanceData[ptStr].isSukjik) continue; 
+
+                    bestStr = tStr;
+                    break;
+                }
+            }
+            return bestStr;
         }
 
         function openConfigListModal() {
@@ -1135,7 +1197,7 @@
                     saveDataAndRefresh(dStr);
                 });
 
-                // [3] 일~목 대휴 자동 생성 및 금,토,일직 4주 내 우선 지정 로직 구현
+                // 대휴 자동 발생 고정 및 4주 이내 점유 회피 룰 적용
                 row.querySelector('.suk-chk').addEventListener('change', (e) => { 
                     initDayContainer(dStr); 
                     attendanceData[dStr].isSukjik = e.target.checked; 
@@ -1153,29 +1215,29 @@
                     }
                     
                     if (e.target.checked) {
-                        if (dayOfWeek >= 0 && dayOfWeek <= 4) {
-                            // 일~목 숙직: 다음 날 대휴 생성
-                            const nextDayNum = d + 1;
-                            const nextDayDate = new Date(year, monthIdx, nextDayNum);
-                            if (nextDayDate.getMonth() === monthIdx && !isLegalHoliday(nextDayDate.getFullYear(), nextDayDate.getMonth(), nextDayDate.getDate()) && nextDayDate.getDay() !== 6 && nextDayDate.getDay() !== 0) {
-                                const nextDStr = `${prefix}-${String(nextDayNum).padStart(2, '0')}`;
-                                initDayContainer(nextDStr, '대휴');
-                                attendanceData[nextDStr].workType = '대휴';
-                                attendanceData[nextDStr].daehyuTargetDate = dStr; 
-                                attendanceData[nextDStr].startTime = ""; attendanceData[nextDStr].endTime = "";
-                                saveDataAndRefresh(nextDStr);
+                        const nextDate = new Date(year, monthIdx, d + 1);
+                        const nd = nextDate.getDate(), nm = nextDate.getMonth(), ny = nextDate.getFullYear();
+                        const nDay = nextDate.getDay();
+                        const nHoli = isLegalHoliday(ny, nm, nd);
+                        const nStr = `${ny}-${String(nm+1).padStart(2,'0')}-${String(nd).padStart(2,'0')}`;
+
+                        if (nDay > 0 && nDay < 6 && !nHoli) {
+                            // 익일이 평일인 경우 (고정)
+                            initDayContainer(nStr, '대휴');
+                            attendanceData[nStr].workType = '대휴';
+                            attendanceData[nStr].daehyuTargetDate = dStr;
+                            attendanceData[nStr].startTime = ""; attendanceData[nStr].endTime = "";
+                            saveDataAndRefresh(nStr);
+                        } else {
+                            // 익일이 휴일/주말인 경우 (4주이내 우선지정)
+                            let targetStr = findLatestAvailableWeekday(dStr);
+                            if (targetStr) {
+                                initDayContainer(targetStr, '대휴');
+                                attendanceData[targetStr].workType = '대휴';
+                                attendanceData[targetStr].daehyuTargetDate = dStr;
+                                attendanceData[targetStr].startTime = ""; attendanceData[targetStr].endTime = "";
+                                saveDataAndRefresh(targetStr);
                             }
-                        } else if (dayOfWeek === 5 || dayOfWeek === 6) {
-                            // 금, 토 숙직: 4주 이내 마지막 금요일 탐색
-                            let fDate = new Date(year, monthIdx, d);
-                            fDate.setDate(fDate.getDate() + 28);
-                            while (fDate.getDay() !== 5) { fDate.setDate(fDate.getDate() - 1); }
-                            const fStr = `${fDate.getFullYear()}-${String(fDate.getMonth()+1).padStart(2,'0')}-${String(fDate.getDate()).padStart(2,'0')}`;
-                            initDayContainer(fStr, '대휴');
-                            attendanceData[fStr].workType = '대휴';
-                            attendanceData[fStr].daehyuTargetDate = dStr;
-                            attendanceData[fStr].startTime = ""; attendanceData[fStr].endTime = "";
-                            saveDataAndRefresh(fStr);
                         }
                     }
                     saveDataAndRefresh(dStr); 
@@ -1186,16 +1248,15 @@
                     attendanceData[dStr].isIljik = e.target.checked; 
                     
                     if (e.target.checked) {
-                        // 일직 시: 4주 이내 마지막 금요일 탐색
-                        let fDate = new Date(year, monthIdx, d);
-                        fDate.setDate(fDate.getDate() + 28);
-                        while (fDate.getDay() !== 5) { fDate.setDate(fDate.getDate() - 1); }
-                        const fStr = `${fDate.getFullYear()}-${String(fDate.getMonth()+1).padStart(2,'0')}-${String(fDate.getDate()).padStart(2,'0')}`;
-                        initDayContainer(fStr, '대휴');
-                        attendanceData[fStr].workType = '대휴';
-                        attendanceData[fStr].daehyuTargetDate = dStr;
-                        attendanceData[fStr].startTime = ""; attendanceData[fStr].endTime = "";
-                        saveDataAndRefresh(fStr);
+                        // 일직은 항상 4주 이내 우선지정
+                        let targetStr = findLatestAvailableWeekday(dStr);
+                        if (targetStr) {
+                            initDayContainer(targetStr, '대휴');
+                            attendanceData[targetStr].workType = '대휴';
+                            attendanceData[targetStr].daehyuTargetDate = dStr;
+                            attendanceData[targetStr].startTime = ""; attendanceData[targetStr].endTime = "";
+                            saveDataAndRefresh(targetStr);
+                        }
                     }
                     saveDataAndRefresh(dStr); 
                 });
@@ -1252,7 +1313,7 @@
             document.getElementById('prev-month').addEventListener('click', () => moveMonth(-1));
             document.getElementById('next-month').addEventListener('click', () => moveMonth(1));
 
-            // 대휴 모달 핸들러 등록
+            // 모달 저장 후 원래상태로 엄격한 복구
             document.getElementById('btn-confirm-move-off').addEventListener('click', () => {
                 const targetStr = document.getElementById('move-off-date-select').value;
                 if(targetStr === activeDaehyuSourceStr) {
@@ -1263,45 +1324,23 @@
                 const sourceSaved = attendanceData[activeDaehyuSourceStr];
                 const daehyuTarget = sourceSaved ? sourceSaved.daehyuTargetDate : "";
 
-                // 타겟 날짜 생성
-                initDayContainer(targetStr, '대휴');
-                attendanceData[targetStr].workType = '대휴';
-                attendanceData[targetStr].daehyuTargetDate = daehyuTarget;
+                initDayContainer(targetStr, activeMoveTypeStr);
+                attendanceData[targetStr].workType = activeMoveTypeStr;
+                attendanceData[targetStr].daehyuTargetDate = activeMoveTypeStr === '대휴' ? daehyuTarget : "";
                 attendanceData[targetStr].startTime = "";
                 attendanceData[targetStr].endTime = "";
                 attendanceData[targetStr].isCustomTimeModified = true;
 
-                // 출발지 날짜 원복 초기화
-                const parts = activeDaehyuSourceStr.split('-');
-                const cDate = new Date(parts[0], parts[1]-1, parts[2]);
-                const isHoli = isLegalHoliday(cDate.getFullYear(), cDate.getMonth(), cDate.getDate());
-                const originalType = getBaseWorkType(cDate.getFullYear(), cDate.getMonth(), cDate.getDate(), cDate.getDay(), isHoli);
-
-                attendanceData[activeDaehyuSourceStr].workType = originalType;
-                attendanceData[activeDaehyuSourceStr].daehyuTargetDate = "";
-                let def = getDefaultTimeForDay(originalType, cDate.getDay());
-                attendanceData[activeDaehyuSourceStr].startTime = def.start;
-                attendanceData[activeDaehyuSourceStr].endTime = def.end;
-                attendanceData[activeDaehyuSourceStr].isCustomTimeModified = false;
+                revertDayToDefault(activeDaehyuSourceStr);
 
                 saveDataAndRefresh(activeDaehyuSourceStr);
                 saveDataAndRefresh(targetStr);
                 document.getElementById('modal-move-off').classList.remove('open');
             });
 
+            // 모달 삭제 시 원래상태로 엄격한 복구
             document.getElementById('btn-remove-off-item').addEventListener('click', () => {
-                const parts = activeDaehyuSourceStr.split('-');
-                const cDate = new Date(parts[0], parts[1]-1, parts[2]);
-                const isHoli = isLegalHoliday(cDate.getFullYear(), cDate.getMonth(), cDate.getDate());
-                const originalType = getBaseWorkType(cDate.getFullYear(), cDate.getMonth(), cDate.getDate(), cDate.getDay(), isHoli);
-
-                attendanceData[activeDaehyuSourceStr].workType = originalType;
-                attendanceData[activeDaehyuSourceStr].daehyuTargetDate = "";
-                let def = getDefaultTimeForDay(originalType, cDate.getDay());
-                attendanceData[activeDaehyuSourceStr].startTime = def.start;
-                attendanceData[activeDaehyuSourceStr].endTime = def.end;
-                attendanceData[activeDaehyuSourceStr].isCustomTimeModified = false;
-
+                revertDayToDefault(activeDaehyuSourceStr);
                 saveDataAndRefresh(activeDaehyuSourceStr);
                 document.getElementById('modal-move-off').classList.remove('open');
             });
@@ -1345,7 +1384,7 @@
                         let manM = saved.manualOvertimeMins || 0;
                         let manText = manM > 0 ? `${manM/60}H` : '';
 
-                        let totM = Math.min(calcM + manM, 240); // 엑셀 출력 시에도 한도 반영
+                        let totM = Math.min(calcM + manM, 240); 
                         let totText = totM > 0 ? `${Math.floor(totM/60)}H ${String(totM%60).padStart(2,'0')}M` : '';
 
                         csvContent += `${m}월 ${d}일,${saved.workType},${saved.startTime || ''},${saved.endTime || ''},${calcText},${manText},${totText},${saved.breakfast ? 'O':'X'},${saved.lunch ? 'O':'X'},${saved.isSukjik ? 'O':'X'},${saved.isIljik ? 'O':'X'},"${saved.memo || ''}",${saved.daehyuTargetDate || ''}\n`;
@@ -1492,7 +1531,6 @@
                 saveStorage(); timeModal.classList.remove('open'); refreshUI();
             });
 
-            // [5] 시간 삭제 공백 동기화 완벽 반영
             document.getElementById('time-form').addEventListener('submit', (e) => {
                 e.preventDefault();
                 initDayContainer(selectedDateStr, modalWorkTypeSelect.value);
@@ -1510,13 +1548,12 @@
                 
                 let defaults = getDefaultTimeForDay(modalWorkTypeSelect.value, dayOfWeek);
                 
-                // 사용자가 의도적으로 공백으로 지운 경우를 플래그(isCustomTimeModified)로 저장
                 let isTimeChanged = (startTimeInput.value !== defaults.start || endTimeInput.value !== defaults.end);
 
                 attendanceData[selectedDateStr] = {
                     workType: modalWorkTypeSelect.value, 
-                    startTime: startTimeInput.value, // 공백("") 일치 저장
-                    endTime: endTimeInput.value,     // 공백("") 일치 저장
+                    startTime: startTimeInput.value, 
+                    endTime: endTimeInput.value,     
                     isSukjik: modalWorkTypeSelect.value === '대휴' ? false : prevSuk, 
                     isIljik: prevIl, 
                     overtimeMins: res.overtimeMins, 
