@@ -137,9 +137,11 @@
 
         .duty-line { display: flex; justify-content: center; width: 100%; min-height: 12px; grid-row: 3; align-items: center; gap: 2px; }
         .mini-duty-badge { font-size: 0.6rem; padding: 0px 3px; border-radius: 3px; font-weight: 900; background-color: var(--sookjik-bg); color: #fff; line-height: 1.1; letter-spacing: -0.3px; }
+        .mini-duty-badge.iljik { background-color: var(--iljik-bg); color: #000000; }
+        [data-theme="light"] .mini-duty-badge.iljik { color: #ffffff; }
 
-        .day-memo-line { font-size: 0.6rem; color: #0F4C5C; text-align: center; width: 100%; overflow: hidden; white-space: nowrap; text-overflow: clip; padding: 0 2px; font-weight: 700; letter-spacing: -0.2px; grid-row: 4; }
-        [data-theme="light"] .day-memo-line { color: #0F4C5C; }
+        .day-memo-line { font-size: 0.6rem; color: #a7f3d0; text-align: center; width: 100%; overflow: hidden; white-space: nowrap; text-overflow: clip; padding: 0 2px; font-weight: 500; grid-row: 4; }
+        [data-theme="light"] .day-memo-line { color: #065f46; }
 
         .day-mid-time { font-size: 0.68rem; letter-spacing: -0.3px; text-align: center; grid-row: 5; }
         .day-cell.past-day .day-mid-time { color: var(--accent-color); font-weight: 700; } 
@@ -159,7 +161,7 @@
         .close-btn { color: var(--text-muted); cursor: pointer; }
 
         .setting-base-box { background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 11px; margin-bottom: 12px; }
-        .setting-base-title { font-size: 0.78rem; font-weight: bold; margin-bottom: 6px; }
+        .setting-base-title { font-size: 0.78rem; font-weight: bold; color: var(--accent-color); margin-bottom: 6px; }
         .setting-base-inputs { display: flex; gap: 8px; align-items: center; }
         .setting-base-inputs input, .setting-base-inputs select { padding: 6px; font-size: 0.85rem; background: var(--app-bg); border: 1px solid var(--border-color); color: var(--text-white); border-radius: 6px; width: 100%; }
 
@@ -338,7 +340,7 @@
                 </div>
 
                 <div class="form-group" style="margin-top:4px;">
-                    <label>일정</label>
+                    <label>일정 등록</label>
                     <input type="text" id="modal-day-memo" placeholder="">
                 </div>
 
@@ -367,7 +369,7 @@
     <div class="modal-overlay" id="config-list-modal">
         <div class="modal-content" style="display:flex; flex-direction:column;">
             <header class="modal-header" style="flex-shrink:0;">
-                <div><h3 style="font-size:0.95rem; color:var(--text-white);">스케줄 관리</h3></div>
+                <div><h3 style="font-size:0.95rem; color:var(--text-white);">스케줄 관리 (근무 및 수기초과)</h3></div>
             </header>
             <div class="config-table-container" id="config-rows-injector" style="flex:1; overflow-y:auto;"></div>
             <div style="flex-shrink:0; padding-top:12px; border-top:1px solid var(--border-color);">
@@ -385,7 +387,7 @@
             <div style="flex:1; overflow-y:auto;">
 
             <div class="setting-base-box">
-                <div class="setting-base-title" style="color: #4a90e2; display:flex; justify-content:space-between; align-items:center;">
+                <div class="setting-base-title" style="color: #ffd166; display:flex; justify-content:space-between; align-items:center;">
                     ① 평일근무 기본 출퇴근 시간 설정
                     <label style="font-size:0.75rem; color:var(--text-white); font-weight:normal; display:flex; align-items:center; gap:4px; cursor:pointer;">
                         <input type="checkbox" id="global-cfg-friday-inc"> 금요일포함
@@ -408,7 +410,7 @@
             </div>
 
             <div class="setting-base-box">
-                <div class="setting-base-title" style="color: #4a90e2;">③ 인사혁신처 연동 및 직급/단가 변경 이력</div>
+                <div class="setting-base-title">③ 인사혁신처 연동 및 직급/단가 변경 이력</div>
                 <div style="max-height: 110px; overflow-y: auto; margin-bottom:6px;">
                     <table class="history-table">
                         <thead>
@@ -435,7 +437,7 @@
             </div>
 
             <div class="setting-base-box">
-                <div class="setting-base-title" style="color: #4a90e2;">④ 엑셀로 내보내기</div>
+                <div class="setting-base-title" style="color:#10b981;">④ 엑셀로 내보내기</div>
                 <div class="excel-selector-box" style="display:flex; gap:6px; align-items: center;">
                     <select id="export-year" style="flex: 1; padding:7px; font-size:0.82rem; border:1px solid var(--border-color); border-radius:6px;"></select>
                     <button type="button" id="btn-excel-export" class="btn btn-primary" style="flex: 1.2; padding:7px; font-size:0.82rem; background-color:#10b981; color:#fff; border-radius:6px; height: 35px;">다운로드</button>
@@ -443,7 +445,7 @@
             </div>
 
             <div class="setting-base-box">
-                <div class="setting-base-title" style="color: #4a90e2;">⑤ 데이터 백업 및 복구 (.txt)</div>
+                <div class="setting-base-title" style="color:#a855f7;">⑤ 데이터 백업 및 복구 (.txt)</div>
                 <div style="display:flex; gap:6px;">
                     <button type="button" id="id-btn-txt-export" class="btn btn-outline" style="font-size:0.82rem; padding:7px; height: 35px; border-color: var(--border-color); color: var(--text-main);">내보내기</button>
                     <button type="button" id="id-btn-txt-import" class="btn btn-outline" style="font-size:0.82rem; padding:7px; height: 35px; border-color: var(--border-color); color: var(--text-main);">가져오기</button>
@@ -452,7 +454,7 @@
             </div>
 
             <div class="setting-base-box" style="margin-bottom:15px;">
-                <div class="setting-base-title" style="color: #4a90e2;">⑥ 화면 테마 설정</div>
+                <div class="setting-base-title">⑥ 화면 테마 설정</div>
                 <select id="theme-selector" style="padding:8px; font-size:0.85rem; color: var(--select-text-color) !important; background-color: var(--card-bg) !important; border: 1px solid var(--border-color); border-radius: 6px; width: 100%;">
                     <option value="dark">다크 모드</option>
                     <option value="light">라이트 모드</option>
@@ -1559,7 +1561,7 @@
                     workType: modalWorkTypeSelect.value, 
                     startTime: startTimeInput.value, 
                     endTime: endTimeInput.value,     
-                    isSukjik: modalWorkTypeSelect.value === '대휴' ? false : 기숙, 
+                    isSukjik: modalWorkTypeSelect.value === '대휴' ? false : prevSuk, 
                     isIljik: prevIl, 
                     overtimeMins: res.overtimeMins, 
                     breakfast: res.breakfast, 
