@@ -257,7 +257,7 @@
                     <span class="material-symbols-outlined" style="font-size:1.15rem; margin-right:4px;">settings</span>근무관리
                 </div>
                 <div class="app-title" id="trigger-leave-manage" title="연가관리 열기" style="margin-left: 10px;">
-                    &nbsp;&nbsp;<span style="font-size:90%; margin-right:2px;">✈️</span>
+                    &nbsp;&nbsp;<span style="font-size:0.9em; margin-right:2px;">✈️</span>
                 </div>
             </div>
             <div class="month-selector">
@@ -368,7 +368,7 @@
             </header>
             <div style="margin-bottom:12px;">
                 <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:8px;" id="move-off-desc"></p>
-                <input type="date" id="move-off-date-select" style="width:100%; padding:8px; border-radius:6px; background:var(--card-bg); color:var(--text-white); border:1px solid var(--border-color);">
+                <select id="move-off-date-select" style="width:100%; padding:8px; border-radius:6px; background:var(--card-bg); color:var(--text-white); border:1px solid var(--border-color);"></select>
             </div>
             <div class="modal-actions">
                 <button class="btn btn-outline" id="btn-remove-off-item" style="color:#f87171;">대휴 삭제</button>
@@ -647,7 +647,6 @@
                 localStorage.setItem('holiday_work_config', JSON.stringify(holidayConfig));
                 localStorage.setItem('user_grade_history', JSON.stringify(gradeHistory));
                 localStorage.setItem('app_theme', currentTheme);
-                localStorage.setItem('leave_settings', JSON.stringify(leaveSettings));
             } catch (e) {}
         }
 
@@ -663,10 +662,6 @@
         let gradeHistory = safeLoad('user_grade_history', safeLoad('user_grade_history_v1.0', [
             { date: "2026-01-01", grade: "9", hourly: 10949, holiday: 88017 }
         ]));
-        
-        // 연가관리 데이터 구조 초기화
-        let leaveSettings = safeLoad('leave_settings', { "2025": { savedD: 0, savedH: 0 } });
-        let leaveCurrentYear = systemToday.getFullYear() < 2025 ? 2025 : systemToday.getFullYear();
 
         function setupMidnightRefresh() {
             const now = new Date();
@@ -955,17 +950,19 @@
                 }
 
                 let displayTag = "";
-                let isMovable = (!isFixed || activeType !== '대휴') && activeType !== '평일';
-                
                 if (activeType !== '평일') {
-                    let tagContent = activeType;
                     if (activeType === '대휴' && daehyuTarget) {
                         const parts = daehyuTarget.split('-');
                         if(parts.length === 3) {
-                            tagContent = `${activeType} <span style="font-size:0.43rem; font-weight:normal; opacity:0.9; letter-spacing:-0.5px;">${Number(parts[1])}/${Number(parts[2])}</span>`;
+                            displayTag = `<span class="mini-type-tag ${classDecorator}" data-move-from="${dateStr}" data-move-type="${activeType}" style="font-size:0.55rem; ${isFixed ? '' : 'cursor:pointer;'}">${activeType} <span style="font-size:0.43rem; font-weight:normal; opacity:0.9; letter-spacing:-0.5px;">${Number(parts[1])}/${Number(parts[2])}</span></span>`;
+                        } else {
+                            displayTag = `<span class="mini-type-tag ${classDecorator}" data-move-from="${dateStr}" data-move-type="${activeType}" style="${isFixed ? '' : 'cursor:pointer;'}">${activeType}</span>`;
                         }
+                    } else if (activeType === '휴무' || activeType === '휴일근무') {
+                        displayTag = `<span class="mini-type-tag ${classDecorator}">${activeType}</span>`;
+                    } else {
+                        displayTag = `<span class="mini-type-tag ${classDecorator}" data-move-from="${dateStr}" data-move-type="${activeType}" style="${isFixed ? '' : 'cursor:pointer;'}">${activeType}</span>`;
                     }
-                    displayTag = `<span class="mini-type-tag ${classDecorator}" data-move-from="${dateStr}" data-move-type="${activeType}" style="${isMovable ? 'cursor:pointer;' : ''}">${tagContent}</span>`;
                 } else {
                     displayTag = '<span class="mini-type-tag" style="visibility:hidden;">평일</span>';
                 }
@@ -1209,10 +1206,21 @@
             document.getElementById('move-off-desc').textContent = `${currentDay}일의 ${moveType} 스케줄을 재배치할 날짜를 선택하세요.`;
             document.getElementById('btn-remove-off-item').textContent = `${moveType} 삭제`;
 
-            const dateInput = document.getElementById('move-off-date-select');
-            let parts = fromKey.split('-');
-            dateInput.value = `${parts[0]}-${parts[1].padStart(2,'0')}-${parts[2].padStart(2,'0')}`;
+            const select = document.getElementById('move-off-date-select');
+            select.innerHTML = '';
+            const y = currentDate.getFullYear();
+            const m = currentDate.getMonth();
+            const totalDays = new Date(y, m + 1, 0).getDate();
             
+            for(let d=1; d<=totalDays; d++) {
+                let dStr = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                let opt = document.createElement('option');
+                opt.value = dStr;
+                let wd = ['일','월','화','수','목','금','토'][new Date(y,m,d).getDay()];
+                opt.textContent = `${m+1}월 ${d}일 (${wd})`;
+                if(dStr === fromKey) opt.selected = true;
+                select.appendChild(opt);
+            }
             document.getElementById('modal-move-off').classList.add('open');
         }
 
@@ -1425,94 +1433,6 @@
         // ==========================================
         // 7. EVENT REGISTRATION & INITIALIZATION
         // ==========================================
-        
-        function getLeaveYearCascade(targetYear) {
-            let baseSavedD = leaveSettings["2025"]?.savedD || 0;
-            let baseSavedH = leaveSettings["2025"]?.savedH || 0;
-            let currentSavedH = (baseSavedD * 8) + baseSavedH;
-
-            let stats = null;
-            for (let y = 2026; y <= targetYear; y++) {
-                let usedH = 0;
-                let plannedH = 0;
-                
-                for (let m = 1; m <= 12; m++) {
-                    let maxD = new Date(y, m, 0).getDate();
-                    for (let d = 1; d <= maxD; d++) {
-                        let dStr = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-                        let saved = attendanceData[dStr];
-                        if (saved) {
-                            let type = saved.workType;
-                            let hours = 0;
-                            if (['연가', '특가', '공가'].includes(type)) hours = 8;
-                            else if (['오전', '오후'].includes(type)) hours = 4;
-                            else if (['지각', '조퇴'].includes(type)) hours = 2;
-                            
-                            if (hours > 0) {
-                                let cDate = new Date(y, m-1, d);
-                                if (cDate <= todayMidnight) usedH += hours;
-                                else plannedH += hours;
-                            }
-                        }
-                    }
-                }
-                
-                let totalD = 0;
-                for (let ty = 2026; ty <= y; ty++) {
-                    if (leaveSettings[ty] && leaveSettings[ty].totalD !== undefined) {
-                        totalD = leaveSettings[ty].totalD;
-                    }
-                }
-                
-                let remainH = (totalD * 8) - usedH - plannedH;
-                let compD = leaveSettings[y]?.compD || 0;
-                
-                stats = { usedH, plannedH, totalD, remainH, savedH: currentSavedH, compD };
-                
-                currentSavedH = currentSavedH + remainH - (compD * 8);
-            }
-            
-            if (!stats && targetYear < 2026) {
-                return { usedH:0, plannedH:0, totalD:0, remainH:0, savedH: currentSavedH, compD:0 };
-            }
-            
-            return stats;
-        }
-
-        function renderLeaveModal() {
-            document.getElementById('leave-year-title').textContent = `${leaveCurrentYear}년 연가`;
-            
-            if (leaveCurrentYear === 2025) {
-                document.getElementById('leave-content-main').style.display = 'none';
-                document.getElementById('leave-content-2025').style.display = 'flex';
-                
-                let set = leaveSettings["2025"] || { savedD: 0, savedH: 0 };
-                document.getElementById('leave-2025-saved-d').value = set.savedD;
-                document.getElementById('leave-2025-saved-h').value = set.savedH;
-            } else {
-                document.getElementById('leave-content-2025').style.display = 'none';
-                document.getElementById('leave-content-main').style.display = 'flex';
-                
-                let stats = getLeaveYearCascade(leaveCurrentYear);
-                
-                document.getElementById('leave-total-input').value = stats.totalD;
-                
-                let uD = Math.trunc(stats.usedH / 8); let uH = stats.usedH % 8;
-                document.getElementById('leave-used-text').textContent = `${uD}일 ${uH}시간`;
-                
-                let pD = Math.trunc(stats.plannedH / 8); let pH = stats.plannedH % 8;
-                document.getElementById('leave-planned-text').textContent = `${pD}일 ${pH}시간`;
-                
-                let rD = Math.trunc(stats.remainH / 8); let rH = stats.remainH % 8;
-                document.getElementById('leave-remain-text').textContent = `${rD}일 ${rH}시간`;
-                
-                document.getElementById('leave-comp-input').value = stats.compD;
-                
-                let sD = Math.trunc(stats.savedH / 8); let sH = stats.savedH % 8;
-                document.getElementById('leave-saved-display-text').textContent = `${sD}일 ${sH}H`;
-            }
-        }
-        
         function setupEventListeners() {
             document.getElementById('trigger-report-popup').addEventListener('click', () => reportModal.classList.add('open'));
             document.getElementById('trigger-config-popup').addEventListener('click', () => openConfigListModal());
@@ -1526,74 +1446,6 @@
             document.getElementById('close-time-modal').addEventListener('click', () => timeModal.classList.remove('open'));
             document.getElementById('close-global-modal').addEventListener('click', () => globalConfigModal.classList.remove('open'));
 
-            // 연가관리 모달 이벤트
-            document.getElementById('trigger-leave-manage').addEventListener('click', () => {
-                leaveCurrentYear = currentDate.getFullYear() < 2025 ? 2025 : currentDate.getFullYear();
-                renderLeaveModal();
-                document.getElementById('leave-modal').classList.add('open');
-            });
-            document.getElementById('close-leave-modal').addEventListener('click', () => {
-                document.getElementById('leave-modal').classList.remove('open');
-            });
-            document.getElementById('leave-prev-year').addEventListener('click', () => {
-                if (leaveCurrentYear > 2025) {
-                    leaveCurrentYear--;
-                    renderLeaveModal();
-                }
-            });
-            document.getElementById('leave-next-year').addEventListener('click', () => {
-                leaveCurrentYear++;
-                renderLeaveModal();
-            });
-            
-            document.getElementById('leave-total-input').addEventListener('input', () => {
-                let stats = getLeaveYearCascade(leaveCurrentYear);
-                let typedTotal = parseInt(document.getElementById('leave-total-input').value) || 0;
-                let remainH = (typedTotal * 8) - stats.usedH - stats.plannedH;
-                
-                let rD = Math.trunc(remainH / 8); let rH = remainH % 8;
-                document.getElementById('leave-remain-text').textContent = `${rD}일 ${rH}시간`;
-                
-                let maxComp = Math.max(0, Math.floor(remainH / 8));
-                let compInput = document.getElementById('leave-comp-input');
-                if (parseInt(compInput.value) > maxComp) compInput.value = maxComp;
-            });
-
-            document.getElementById('leave-comp-input').addEventListener('input', (e) => {
-                let stats = getLeaveYearCascade(leaveCurrentYear);
-                let typedTotal = parseInt(document.getElementById('leave-total-input').value) || 0;
-                let remainH = (typedTotal * 8) - stats.usedH - stats.plannedH;
-                let maxComp = Math.max(0, Math.floor(remainH / 8));
-                
-                let val = parseInt(e.target.value) || 0;
-                if (val < 0) e.target.value = 0;
-                if (val > maxComp) e.target.value = maxComp;
-            });
-            
-            document.getElementById('save-leave-modal').addEventListener('click', () => {
-                if (leaveCurrentYear === 2025) {
-                    if (!leaveSettings["2025"]) leaveSettings["2025"] = {};
-                    leaveSettings["2025"].savedD = parseInt(document.getElementById('leave-2025-saved-d').value) || 0;
-                    leaveSettings["2025"].savedH = parseInt(document.getElementById('leave-2025-saved-h').value) || 0;
-                } else {
-                    if (!leaveSettings[leaveCurrentYear]) leaveSettings[leaveCurrentYear] = {};
-                    let typedTotal = parseInt(document.getElementById('leave-total-input').value) || 0;
-                    leaveSettings[leaveCurrentYear].totalD = typedTotal;
-                    
-                    let stats = getLeaveYearCascade(leaveCurrentYear); 
-                    let remainH = (typedTotal * 8) - stats.usedH - stats.plannedH;
-                    let maxComp = Math.max(0, Math.floor(remainH / 8));
-                    
-                    let comp = parseInt(document.getElementById('leave-comp-input').value) || 0;
-                    if (comp < 0) comp = 0;
-                    if (comp > maxComp) comp = maxComp;
-                    leaveSettings[leaveCurrentYear].compD = comp;
-                }
-                saveStorage();
-                renderLeaveModal(); 
-                alert("연가 설정이 저장되었습니다.");
-            });
-
             currentMonthDisplay.addEventListener('click', () => {
                 currentDate = new Date(systemToday.getFullYear(), systemToday.getMonth(), 1);
                 if (currentDate < limitMinDate) currentDate = new Date(limitMinDate.getFullYear(), limitMinDate.getMonth(), 1);
@@ -1604,13 +1456,7 @@
             document.getElementById('next-month').addEventListener('click', () => moveMonth(1));
 
             document.getElementById('btn-confirm-move-off').addEventListener('click', () => {
-                const rawVal = document.getElementById('move-off-date-select').value;
-                if (!rawVal) {
-                    alert("이동할 날짜를 선택하세요.");
-                    return;
-                }
-                const targetStr = rawVal; 
-                
+                const targetStr = document.getElementById('move-off-date-select').value;
                 if(targetStr === activeDaehyuSourceStr) {
                     document.getElementById('modal-move-off').classList.remove('open');
                     return;
@@ -1696,7 +1542,7 @@
             document.getElementById('id-btn-txt-export').addEventListener('click', () => {
                 const now = new Date();
                 const textFileName = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}.txt`;
-                const storageObj = { attendanceData, globalConfig, holidayConfig, gradeHistory, currentTheme, leaveSettings };
+                const storageObj = { attendanceData, globalConfig, holidayConfig, gradeHistory, currentTheme };
                 const blob = new Blob([JSON.stringify(storageObj, null, 2)], { type: 'text/plain;charset=utf-8;' });
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(blob);
@@ -1720,116 +1566,400 @@
                             if (parsedObj.holidayConfig) holidayConfig = parsedObj.holidayConfig;
                             if (parsedObj.gradeHistory) gradeHistory = parsedObj.gradeHistory;
                             if (parsedObj.currentTheme) currentTheme = parsedObj.currentTheme;
-                            if (parsedObj.leaveSettings) leaveSettings = parsedObj.leaveSettings;
+
                             saveStorage();
-                            alert('데이터가 성공적으로 복구되었습니다.');
-                            location.reload();
-                        } else {
-                            alert('잘못된 백업 파일 형식입니다.');
+                            document.documentElement.setAttribute('data-theme', currentTheme);
+                            themeSelector.value = currentTheme;
+                            document.getElementById('global-cfg-start').value = globalConfig.startTime;
+                            document.getElementById('global-cfg-end').value = globalConfig.endTime;
+                            document.getElementById('global-cfg-friday-inc').checked = globalConfig.includeFriday || false;
+                            document.getElementById('global-holiday-start').value = holidayConfig.startTime;
+                            document.getElementById('global-holiday-end').value = holidayConfig.endTime;
+
+                            gradeHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
+                            renderGradeHistoryTable();
+                            refreshUI();
+                            alert("데이터 복구가 성공적으로 완료되었습니다.");
                         }
-                    } catch (err) {
-                        alert('파일을 읽는 중 오류가 발생했습니다.');
+                    } catch (error) {
+                        alert("올바르지 않은 백업 파일 형식이거나 손상된 파일입니다.");
                     }
                 };
                 fileReader.readAsText(selectedFile);
-                event.target.value = '';
+                event.target.value = ''; 
             });
 
-            document.getElementById('modal-work-type').addEventListener('change', (e) => {
-                applyTimeInputRules(e.target.value, selectedDateStr, selectedDayOfWeek);
-                updateModalLivePreview();
-            });
-            document.getElementById('start-time').addEventListener('input', updateModalLivePreview);
-            document.getElementById('end-time').addEventListener('input', updateModalLivePreview);
-
-            document.getElementById('btn-clear').addEventListener('click', () => {
-                const y = currentDate.getFullYear(), m = currentDate.getMonth(), d = parseInt(document.getElementById('modal-date-day').textContent);
-                let defaultsType = getBaseWorkType(y, m, d, selectedDayOfWeek, isLegalHoliday(y, m, d));
-                document.getElementById('modal-work-type').value = defaultsType;
-                applyTimeInputRules(defaultsType, null, selectedDayOfWeek);
-                document.getElementById('modal-day-memo').value = "";
-                updateModalLivePreview();
-            });
-
-            document.getElementById('btn-save-time-modal').addEventListener('click', () => {
-                initDayContainer(selectedDateStr);
-                attendanceData[selectedDateStr].workType = document.getElementById('modal-work-type').value;
-                attendanceData[selectedDateStr].startTime = startTimeInput.value;
-                attendanceData[selectedDateStr].endTime = endTimeInput.value;
-                attendanceData[selectedDateStr].memo = document.getElementById('modal-day-memo').value;
-                attendanceData[selectedDateStr].isCustomTimeModified = true;
-                
-                if (attendanceData[selectedDateStr].workType !== '대휴') {
-                    attendanceData[selectedDateStr].daehyuTargetDate = "";
-                }
-                
-                saveDataAndRefresh(selectedDateStr);
-                timeModal.classList.remove('open');
+            themeSelector.addEventListener('change', (e) => {
+                currentTheme = e.target.value;
+                document.documentElement.setAttribute('data-theme', currentTheme);
+                saveStorage();
             });
 
             document.getElementById('btn-save-global-settings').addEventListener('click', () => {
-                globalConfig.startTime = document.getElementById('global-cfg-start').value;
-                globalConfig.endTime = document.getElementById('global-cfg-end').value;
-                globalConfig.includeFriday = document.getElementById('global-cfg-friday-inc').checked;
-                holidayConfig.startTime = document.getElementById('global-holiday-start').value;
-                holidayConfig.endTime = document.getElementById('global-holiday-end').value;
+                currentTheme = themeSelector.value;
+                document.documentElement.setAttribute('data-theme', currentTheme);
 
-                let selectedTheme = document.getElementById('theme-selector').value;
-                if (currentTheme !== selectedTheme) {
-                    currentTheme = selectedTheme;
-                    applyTheme();
+                const oldGlobal = { ...globalConfig };
+                const oldHoliday = { ...holidayConfig };
+
+                const newGlobal = { 
+                    startTime: document.getElementById('global-cfg-start').value, 
+                    endTime: document.getElementById('global-cfg-end').value,
+                    includeFriday: document.getElementById('global-cfg-friday-inc').checked
+                };
+                const newHoliday = { 
+                    startTime: document.getElementById('global-holiday-start').value, 
+                    endTime: document.getElementById('global-holiday-end').value 
+                };
+
+                const START_DATE = new Date(2026, 0, 1);
+                const END_DATE = new Date(new Date().getFullYear() + 2, 11, 31);
+                let curr = new Date(START_DATE);
+
+                while (curr.getTime() <= END_DATE.getTime()) {
+                    let dStr = `${curr.getFullYear()}-${String(curr.getMonth() + 1).padStart(2, '0')}-${String(curr.getDate()).padStart(2, '0')}`;
+                    let isPastOrToday = curr.getTime() <= todayMidnight.getTime();
+                    let dayOfWeek = curr.getDay();
+
+                    if (isPastOrToday) {
+                        if (!attendanceData[dStr]) {
+                            let isHoli = isLegalHoliday(curr.getFullYear(), curr.getMonth(), curr.getDate());
+                            let fallbackType = getBaseWorkType(curr.getFullYear(), curr.getMonth(), curr.getDate(), dayOfWeek, isHoli);
+                            let st = ""; let et = "";
+                            let isOldRule = (curr.getFullYear() === 2026 && curr.getMonth() < 5);
+
+                            if (isOldRule) {
+                                if (fallbackType === '평일') { st = '05:00'; et = '16:00'; }
+                                else if (fallbackType === '오전') { st = '11:00'; et = '16:00'; }
+                                else if (fallbackType === '오후') { st = '05:00'; et = '11:00'; }
+                                else if (fallbackType === '휴일근무') { st = '06:00'; et = '11:00'; }
+                            } else {
+                                if (fallbackType === "평일") {
+                                    if (dayOfWeek === 5 && !oldGlobal.includeFriday) { st = ""; et = ""; } 
+                                    else { st = oldGlobal.startTime; et = oldGlobal.endTime; }
+                                }
+                                else if (fallbackType === "휴일근무") { st = oldHoliday.startTime; et = oldHoliday.endTime; }
+                                else if (['조퇴','지각','오전','오후'].includes(fallbackType)) { st = REGULAR_HOURS[fallbackType].start; et = REGULAR_HOURS[fallbackType].end; }
+                            }
+                            
+                            let res = parseDailySheet(dStr, fallbackType, st, et);
+                            attendanceData[dStr] = {
+                                workType: fallbackType, startTime: st, endTime: et,
+                                isSukjik: false, isIljik: false, overtimeMins: res.overtimeMins, breakfast: res.breakfast, lunch: res.lunch, isCustomTimeModified: false, memo: "", manualOvertimeMins: 0, daehyuTargetDate: ""
+                            };
+                        }
+                    } else {
+                        let saved = attendanceData[dStr];
+                        if (saved && !saved.isCustomTimeModified) {
+                            let type = saved.workType;
+                            let isOldRule = (curr.getFullYear() === 2026 && curr.getMonth() < 5);
+                            
+                            if (!isOldRule) {
+                                if (type === '평일') { 
+                                    if (dayOfWeek === 5 && !newGlobal.includeFriday) { saved.startTime = ""; saved.endTime = ""; } 
+                                    else { saved.startTime = newGlobal.startTime; saved.endTime = newGlobal.endTime; }
+                                }
+                                else if (type === '휴일근무') { saved.startTime = newHoliday.startTime; saved.endTime = newHoliday.endTime; }
+                            }
+                            let res = parseDailySheet(dStr, saved.workType, saved.startTime, saved.endTime);
+                            saved.overtimeMins = res.overtimeMins; saved.breakfast = res.breakfast; saved.lunch = res.lunch;
+                        }
+                    }
+                    curr.setDate(curr.getDate() + 1);
                 }
 
+                globalConfig = newGlobal; holidayConfig = newHoliday;
                 saveStorage();
                 globalConfigModal.classList.remove('open');
                 refreshUI();
             });
 
-            let startX = 0;
-            const swipeZone = document.getElementById('calendar-swipe-zone');
-            swipeZone.addEventListener('touchstart', e => startX = e.changedTouches[0].screenX);
-            swipeZone.addEventListener('touchend', e => {
-                let endX = e.changedTouches[0].screenX;
-                if (startX - endX > 50) moveMonth(1); 
-                else if (endX - startX > 50) moveMonth(-1);
+            modalWorkTypeSelect.addEventListener('change', (e) => { applyTimeInputRules(e.target.value, selectedDateStr, selectedDayOfWeek); updateModalLivePreview(); });
+            [startTimeInput, endTimeInput].forEach(inp => inp.addEventListener('input', () => updateModalLivePreview()));
+
+            document.getElementById('btn-clear').addEventListener('click', () => {
+                if (attendanceData[selectedDateStr]) delete attendanceData[selectedDateStr];
+                saveStorage(); timeModal.classList.remove('open'); refreshUI();
+            });
+
+            document.getElementById('btn-save-time-modal').addEventListener('click', () => {
+                initDayContainer(selectedDateStr, modalWorkTypeSelect.value);
+
+                let res = parseDailySheet(selectedDateStr, modalWorkTypeSelect.value, startTimeInput.value, endTimeInput.value);
+                let prevSuk = attendanceData[selectedDateStr].isSukjik;
+                let prevIl = attendanceData[selectedDateStr].isIljik;
+                let prevManual = attendanceData[selectedDateStr].manualOvertimeMins;
+                let prevDaehyu = attendanceData[selectedDateStr].daehyuTargetDate;
+                let inputMemo = document.getElementById('modal-day-memo').value;
+
+                let pParts = selectedDateStr.split('-').map(Number);
+                let pDate = new Date(pParts[0], pParts[1]-1, pParts[2]);
+                let dayOfWeek = pDate.getDay();
+                
+                let defaults = getDefaultTimeForDay(modalWorkTypeSelect.value, dayOfWeek, selectedDateStr);
+                
+                let isTimeChanged = (startTimeInput.value !== defaults.start || endTimeInput.value !== defaults.end);
+
+                attendanceData[selectedDateStr] = {
+                    workType: modalWorkTypeSelect.value, 
+                    startTime: startTimeInput.value, 
+                    endTime: endTimeInput.value,     
+                    isSukjik: modalWorkTypeSelect.value === '대휴' ? false : prevSuk, 
+                    isIljik: prevIl, 
+                    overtimeMins: res.overtimeMins, 
+                    breakfast: res.breakfast, 
+                    lunch: res.lunch, 
+                    isCustomTimeModified: isTimeChanged, 
+                    memo: inputMemo,
+                    manualOvertimeMins: prevManual, 
+                    daehyuTargetDate: prevDaehyu
+                };
+
+                saveStorage(); 
+                timeModal.classList.remove('open'); 
+                refreshUI();
             });
         }
 
-        async function backgroundLoadHolidays(year) {
-            await fetchHolidays(year);
-            await fetchHolidays(year - 1);
-            await fetchHolidays(year + 1);
-            refreshUI();
+        function setupSwipeGestures() {
+            const zone = document.getElementById('calendar-swipe-zone');
+            let touchStartX = null; let touchStartY = null;
+            let touchEndX = null; let touchEndY = null;
+
+            zone.addEventListener('touchstart', (e) => { 
+                if (e.touches.length > 1) { 
+                    touchStartX = null; 
+                    return; 
+                }
+                touchStartX = e.changedTouches[0].screenX; 
+                touchStartY = e.changedTouches[0].screenY;
+            }, { passive: true });
+
+            zone.addEventListener('touchend', (e) => { 
+                if (touchStartX === null || e.changedTouches.length > 1) return;
+                touchEndX = e.changedTouches[0].screenX; 
+                touchEndY = e.changedTouches[0].screenY;
+                handleSwipeMove(); 
+            }, { passive: true });
+
+            function handleSwipeMove() {
+                const threshold = 50; 
+                if (Math.abs(touchEndY - touchStartY) > Math.abs(touchEndX - touchStartX)) return;
+
+                if (touchStartX - touchEndX > threshold) moveMonth(1);
+                else if (touchEndX - touchStartX > threshold) moveMonth(-1);
+            }
         }
 
-        function moveMonth(dir) {
-            let nextDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + dir, 1);
-            if (nextDate < limitMinDate) return;
-            currentDate = nextDate;
+        function moveMonth(offset) {
+            let nextMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + offset, 1);
+            if (nextMonth < limitMinDate) {
+                alert("2026년 1월 이전으로는 이동할 수 없습니다.");
+                return;
+            }
+            currentDate = nextMonth;
             backgroundLoadHolidays(currentDate.getFullYear());
         }
 
-        function applyTheme() {
-            document.documentElement.setAttribute('data-theme', currentTheme);
-            document.getElementById('theme-selector').value = currentTheme;
+        function backgroundLoadHolidays(year) {
+            refreshUI(); 
+            fetchHolidays(year).then(() => {
+                refreshUI(); 
+            });
         }
 
-        function initApp() {
-            applyTheme();
+        // ==========================================
+        // 8. 추가 요건: 연가 관리 로직
+        // ==========================================
+        let leaveData = safeLoad('user_leave_data', {});
+        let currentLeaveYear = systemToday.getFullYear();
+
+        function getLeaveTotalForYear(year) {
+            if (leaveData[year] && leaveData[year].total !== undefined) {
+                return leaveData[year].total;
+            }
+            let y = year - 1;
+            while (y >= 2026) {
+                if (leaveData[y] && leaveData[y].total !== undefined) {
+                    return leaveData[y].total;
+                }
+                y--;
+            }
+            return 16; 
+        }
+
+        function calculateLeaveUsage(year) {
+            let usedMins = 0;
+            let plannedMins = 0;
+            const startStr = `${year}-01-01`;
+            const endStr = `${year}-12-31`;
+
+            for (let dateStr in attendanceData) {
+                if (dateStr >= startStr && dateStr <= endStr) {
+                    let type = attendanceData[dateStr].workType;
+                    let cDate = new Date(dateStr);
+                    let isPast = cDate <= todayMidnight;
+                    
+                    let mins = 0;
+                    if (type === '연가') mins = 8 * 60;
+                    else if (type === '오전' || type === '오후' || type === '조퇴' || type === '지각') mins = 4 * 60;
+                    
+                    if (mins > 0) {
+                        if (isPast) usedMins += mins;
+                        else plannedMins += mins;
+                    }
+                }
+            }
+            return { usedMins, plannedMins };
+        }
+
+        function updateLeaveModal() {
+            document.getElementById('leave-year-title').textContent = `${currentLeaveYear}년 연가`;
+            
+            if (currentLeaveYear === 2025) {
+                document.getElementById('leave-content-main').style.display = 'none';
+                document.getElementById('leave-content-2025').style.display = 'flex';
+                let sd = leaveData['2025_saved'] || { d:0, h:0 };
+                document.getElementById('leave-2025-saved-d').value = sd.d;
+                document.getElementById('leave-2025-saved-h').value = sd.h;
+            } else {
+                document.getElementById('leave-content-main').style.display = 'flex';
+                document.getElementById('leave-content-2025').style.display = 'none';
+
+                let total = getLeaveTotalForYear(currentLeaveYear);
+                let comp = (leaveData[currentLeaveYear] && leaveData[currentLeaveYear].comp) || 0;
+                
+                document.getElementById('leave-total-input').value = total;
+
+                let { usedMins, plannedMins } = calculateLeaveUsage(currentLeaveYear);
+                
+                let savedTotalMins = 0;
+                if (currentLeaveYear === 2026) {
+                    let sd = leaveData['2025_saved'] || { d:0, h:0 };
+                    savedTotalMins = (sd.d * 8 * 60) + (sd.h * 60);
+                }
+                
+                let usedText = `${Math.floor(usedMins / (8*60))}일 ${(usedMins % (8*60)) / 60}시간`;
+                let plannedText = `${Math.floor(plannedMins / (8*60))}일 ${(plannedMins % (8*60)) / 60}시간`;
+                
+                document.getElementById('leave-used-text').textContent = usedText;
+                document.getElementById('leave-planned-text').textContent = plannedText;
+
+                let totalMins = total * 8 * 60 + savedTotalMins;
+                let remainMins = totalMins - usedMins - plannedMins;
+                
+                let remainD = Math.floor(remainMins / (8*60));
+                let remainH = (remainMins % (8*60)) / 60;
+                let remainText = remainMins >= 0 ? `${remainD}일 ${remainH}시간` : `-${Math.abs(remainD)}일 ${Math.abs(remainH)}시간`;
+                
+                let remainEl = document.getElementById('leave-remain-text');
+                remainEl.textContent = remainText;
+                remainEl.dataset.remainDays = remainMins / (8*60);
+                remainEl.dataset.remainTotalD = Math.floor(remainMins / (8*60));
+
+                let compInput = document.getElementById('leave-comp-input');
+                compInput.value = comp;
+                
+                if ((remainMins / (8*60)) < 1) {
+                    compInput.disabled = true;
+                    compInput.value = '';
+                } else {
+                    compInput.disabled = false;
+                }
+
+                let finalSavedMins = remainMins - ((parseInt(compInput.value)||0) * 8 * 60);
+                document.getElementById('leave-saved-display-text').textContent = `${Math.floor(finalSavedMins / (8*60))}일 ${Math.floor((finalSavedMins % (8*60))/60)}H`;
+            }
+        }
+
+        function setupLeaveEvents() {
+            document.getElementById('trigger-leave-manage').addEventListener('click', () => {
+                currentLeaveYear = systemToday.getFullYear();
+                updateLeaveModal();
+                document.getElementById('leave-modal').classList.add('open');
+            });
+
+            document.getElementById('close-leave-modal').addEventListener('click', () => {
+                document.getElementById('leave-modal').classList.remove('open');
+            });
+
+            document.getElementById('leave-prev-year').addEventListener('click', () => {
+                if(currentLeaveYear > 2025) {
+                    currentLeaveYear--;
+                    updateLeaveModal();
+                }
+            });
+
+            document.getElementById('leave-next-year').addEventListener('click', () => {
+                currentLeaveYear++;
+                updateLeaveModal();
+            });
+            
+            document.getElementById('leave-comp-input').addEventListener('input', (e) => {
+                let remainEl = document.getElementById('leave-remain-text');
+                let remainTotalD = parseFloat(remainEl.dataset.remainTotalD) || 0;
+                let remainDays = parseFloat(remainEl.dataset.remainDays) || 0;
+                
+                if (remainDays < 1) {
+                    e.target.value = '';
+                } else {
+                    let val = parseInt(e.target.value) || 0;
+                    if (val > remainTotalD) {
+                        e.target.value = remainTotalD;
+                    }
+                }
+                
+                let comp = parseInt(e.target.value) || 0;
+                let remainMins = remainDays * 8 * 60;
+                let finalSavedMins = remainMins - (comp * 8 * 60);
+                document.getElementById('leave-saved-display-text').textContent = `${Math.floor(finalSavedMins / (8*60))}일 ${Math.floor((finalSavedMins % (8*60))/60)}H`;
+            });
+
+            document.getElementById('save-leave-modal').addEventListener('click', () => {
+                if (currentLeaveYear === 2025) {
+                    let d = parseInt(document.getElementById('leave-2025-saved-d').value) || 0;
+                    let h = parseInt(document.getElementById('leave-2025-saved-h').value) || 0;
+                    leaveData['2025_saved'] = { d, h };
+                } else {
+                    if (!leaveData[currentLeaveYear]) leaveData[currentLeaveYear] = {};
+                    leaveData[currentLeaveYear].total = parseInt(document.getElementById('leave-total-input').value) || getLeaveTotalForYear(currentLeaveYear);
+                    leaveData[currentLeaveYear].comp = parseInt(document.getElementById('leave-comp-input').value) || 0;
+                }
+                localStorage.setItem('user_leave_data', JSON.stringify(leaveData));
+                document.getElementById('leave-modal').classList.remove('open');
+                refreshUI();
+            });
+            
+            document.getElementById('leave-total-input').addEventListener('input', () => {
+                 if (!leaveData[currentLeaveYear]) leaveData[currentLeaveYear] = {};
+                 leaveData[currentLeaveYear].total = parseInt(document.getElementById('leave-total-input').value) || 0;
+                 updateLeaveModal();
+            });
+        }
+
+        function init() {
+            document.documentElement.setAttribute('data-theme', currentTheme);
+            themeSelector.value = currentTheme;
+
             document.getElementById('global-cfg-start').value = globalConfig.startTime;
             document.getElementById('global-cfg-end').value = globalConfig.endTime;
-            document.getElementById('global-cfg-friday-inc').checked = globalConfig.includeFriday;
+            document.getElementById('global-cfg-friday-inc').checked = globalConfig.includeFriday || false;
             document.getElementById('global-holiday-start').value = holidayConfig.startTime;
             document.getElementById('global-holiday-end').value = holidayConfig.endTime;
             
-            buildExcelSelectors();
             renderGradeHistoryTable();
+            buildExcelSelectors();
             setupEventListeners();
+            setupSwipeGestures();
             setupMidnightRefresh();
-            backgroundLoadHolidays(currentDate.getFullYear());
+            setupLeaveEvents();
+
+            fetchHolidays(currentDate.getFullYear()).then(() => {
+                refreshUI();
+            });
         }
 
-        initApp();
+        window.onload = init;
     </script>
 </body>
 </html>
