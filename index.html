@@ -250,7 +250,6 @@
 <body>
 
     <div class="app-container">
-        <!-- 첫화면 상단 UI 개선 적용 -->
         <header class="app-header">
             <div style="display:flex; align-items:center;">
                 <div class="app-title" id="trigger-global-config" title="환경설정 열기">
@@ -300,7 +299,6 @@
                 <span class="material-symbols-outlined close-btn" id="close-leave-modal" style="margin-left:12px;">close</span>
             </header>
 
-            <!-- 2026년 이후 메인 화면 -->
             <div id="leave-content-main" style="display: flex; flex-direction: column; gap: 8px;">
                 <div class="leave-row">
                     <span class="leave-row-title">총 연가</span>
@@ -343,7 +341,6 @@
                 </div>
             </div>
 
-            <!-- 2025년 단독 화면 -->
             <div id="leave-content-2025" style="display: none; flex-direction: column; gap: 12px; padding: 20px 10px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px dashed var(--border-color);">
                 <h4 style="text-align:center; color:var(--accent-color); font-size:0.95rem; margin-bottom: 8px;">2025년 이월 저축일수 설정</h4>
                 <div style="display:flex; justify-content:center; align-items:center; gap:8px;">
@@ -480,6 +477,7 @@
         </div>
     </div>
 
+    <!-- 스케줄 관리 모달 -->
     <div class="modal-overlay" id="config-list-modal">
         <div class="modal-content" style="display:flex; flex-direction:column;">
             <header class="modal-header" style="flex-shrink:0;">
@@ -492,6 +490,7 @@
         </div>
     </div>
 
+    <!-- 시스템 환경설정 모달 -->
     <div class="modal-overlay" id="global-config-modal">
         <div class="modal-content" style="display:flex; flex-direction:column;">
             <header class="modal-header" style="flex-shrink:0;">
@@ -997,7 +996,6 @@
                     </div>
                 `;
 
-                // ✅ 대휴 클릭 오류 수정: 조건식 삭제하고 모든 대휴/연가 이벤트 리스너 동작
                 const moveTags = dayCell.querySelectorAll('[data-move-from]');
                 moveTags.forEach(tag => {
                     tag.addEventListener('click', (e) => {
@@ -1197,7 +1195,6 @@
             document.getElementById('preview-meals').textContent = modalWorkTypeSelect.value === '휴일근무' ? `급량 ${res.lunch} (조식 0)` : `조식 ${res.breakfast} / 급량 ${res.lunch}`;
         }
 
-        // ✅ 대휴 모달 오류 수정: 이전 달, 현재 달, 다음 달(연도 변경 포함) 자유로운 이동 보장
         function openDaehyuMovePopup(fromKey, moveType = '대휴') {
             activeDaehyuSourceStr = fromKey;
             activeMoveTypeStr = moveType;
@@ -1437,6 +1434,31 @@
         }
 
         // ==========================================
+        // 스와이프 기능 복원
+        // ==========================================
+        function moveMonth(dir) {
+            let nextDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + dir, 1);
+            if (nextDate < limitMinDate) return; 
+            currentDate = nextDate;
+            fetchHolidays(currentDate.getFullYear()).then(() => refreshUI());
+        }
+
+        let touchStartX = 0;
+        let touchEndX = 0;
+        const swipeZone = document.getElementById('calendar-swipe-zone');
+
+        swipeZone.addEventListener('touchstart', e => {
+            touchStartX = e.changedTouches[0].screenX;
+        }, { passive: true });
+
+        swipeZone.addEventListener('touchend', e => {
+            touchEndX = e.changedTouches[0].screenX;
+            if (touchEndX < touchStartX - 50) moveMonth(1);
+            if (touchEndX > touchStartX + 50) moveMonth(-1);
+        }, { passive: true });
+
+
+        // ==========================================
         // 7. EVENT REGISTRATION & INITIALIZATION
         // ==========================================
         function setupEventListeners() {
@@ -1455,7 +1477,7 @@
             currentMonthDisplay.addEventListener('click', () => {
                 currentDate = new Date(systemToday.getFullYear(), systemToday.getMonth(), 1);
                 if (currentDate < limitMinDate) currentDate = new Date(limitMinDate.getFullYear(), limitMinDate.getMonth(), 1);
-                backgroundLoadHolidays(currentDate.getFullYear());
+                fetchHolidays(currentDate.getFullYear()).then(() => refreshUI());
             });
 
             document.getElementById('prev-month').addEventListener('click', () => moveMonth(-1));
@@ -1690,11 +1712,9 @@
                 saveStorage(); timeModal.classList.remove('open'); refreshUI();
             });
 
-            // ✅ 잘려있던 부분의 완성 및 기존 데이터 보존 처리
             document.getElementById('btn-save-time-modal').addEventListener('click', () => {
                 initDayContainer(selectedDateStr, modalWorkTypeSelect.value);
 
-                let res = parseDailySheet(selectedDateStr, modalWorkTypeSelect.value, startTimeInput.value, endTimeInput.value);
                 let prevSuk = attendanceData[selectedDateStr].isSukjik || false;
                 let prevIl = attendanceData[selectedDateStr].isIljik || false;
                 let prevManual = attendanceData[selectedDateStr].manualOvertimeMins || 0;
@@ -1721,7 +1741,7 @@
         }
 
         // ==========================================
-        // 8. LEAVE MANAGEMENT LOGIC (연가 계산 로직 전면 수정본)
+        // 8. LEAVE MANAGEMENT LOGIC (전면 재작성)
         // ==========================================
         let leaveData = safeLoad('user_leave_data', {});
         let currentLeaveYear = systemToday.getFullYear();
@@ -1730,134 +1750,86 @@
             localStorage.setItem('user_leave_data', JSON.stringify(leaveData));
         }
 
-        function calculateLeaveUsage(year) {
-            let usedD = 0, usedH = 0;
-            let plannedD = 0, plannedH = 0;
+        // 반복계산을 제거하고 수식에 의해 순차적으로 연산되게끔 독립된 함수로 분리
+        function getLeaveStats(targetYear) {
+            // 1. 2025년에 사용자가 설정한 고정 기초 저축값
+            let totalSavedHours = ((leaveData['2025']?.savedD || 0) * 8) + (leaveData['2025']?.savedH || 0);
 
-            // ✅ 현재 연도 계산: 전년도 사용 내역 무시, 해당 연도 데이터만 실시간 계산 (0으로 시작)
-            Object.keys(attendanceData).forEach(dateStr => {
-                if (dateStr.startsWith(`${year}-`)) {
-                    let d = attendanceData[dateStr];
-                    if (d.workType === '연가' || d.workType === '조퇴' || d.workType === '지각' || d.workType === '오전' || d.workType === '오후') {
-                        let hoursToDeduct = 0;
-                        if (d.workType === '연가') hoursToDeduct = 8;
-                        else if (d.workType === '오후' || d.workType === '지각') hoursToDeduct = 4;
-                        else if (d.workType === '오전' || d.workType === '조퇴') hoursToDeduct = 4;
-                        
-                        let cDate = new Date(dateStr);
-                        if (cDate < todayMidnight) {
-                            usedH += hoursToDeduct;
-                        } else {
-                            plannedH += hoursToDeduct;
+            // 2. 2026년부터 목표 연도(targetYear)까지 순차적으로 계산
+            for (let y = 2026; y <= targetYear; y++) {
+                let yTotal = leaveData[y]?.total || (y === 2026 ? 16 : 18);
+                let yComp = leaveData[y]?.comp || 0;
+
+                let yUsedHours = 0;
+                let yPlannedHours = 0;
+
+                Object.keys(attendanceData).forEach(dateStr => {
+                    if (dateStr.startsWith(`${y}-`)) {
+                        let d = attendanceData[dateStr];
+                        if (['연가', '조퇴', '지각', '오전', '오후'].includes(d.workType)) {
+                            let hrs = d.workType === '연가' ? 8 : 4;
+                            let cDate = new Date(dateStr);
+                            if (cDate < todayMidnight) yUsedHours += hrs;
+                            else yPlannedHours += hrs;
                         }
                     }
+                });
+
+                // 해당 연도의 순수 잔여 시간 (총연가 - 사용 - 예정 - 보상)
+                let yRemainingHours = (yTotal * 8) - yUsedHours - yPlannedHours - (yComp * 8);
+
+                if (y === targetYear) {
+                    // 목표 연도에 도달하면 결과를 반환하고 종료. (올해의 잔여는 올해의 저축에 포함하지 않음)
+                    let rAbs = Math.abs(yRemainingHours);
+                    return {
+                        totalD: yTotal,
+                        usedD: Math.floor(yUsedHours / 8), usedH: yUsedHours % 8,
+                        plannedD: Math.floor(yPlannedHours / 8), plannedH: yPlannedHours % 8,
+                        remainHoursTotal: yRemainingHours,
+                        remainD: Math.floor(rAbs / 8), remainH: rAbs % 8,
+                        compD: yComp,
+                        savedD: Math.floor(totalSavedHours / 8), savedH: totalSavedHours % 8
+                    };
+                } else {
+                    // 과거 연도의 루프일 경우, 해당 과거 연도의 잔여를 다음해 저축에 누적 합산시킴
+                    totalSavedHours += yRemainingHours;
                 }
-            });
-
-            usedD = Math.floor(usedH / 8); usedH = usedH % 8;
-            plannedD = Math.floor(plannedH / 8); plannedH = plannedH % 8;
-
-            return { used: {d: usedD, h: usedH}, planned: {d: plannedD, h: plannedH} };
-        }
-
-        function initLeaveYear(year) {
-            if (!leaveData[year]) {
-                let baseLeave = 15;
-                let savedD = 0, savedH = 0;
-
-                if (year > 2025) {
-                    let prevYear = year - 1;
-                    if (!leaveData[prevYear]) {
-                        initLeaveYear(prevYear); 
-                    }
-                    let prevData = leaveData[prevYear];
-                    
-                    // ✅ 기본연가 규칙: 전년도 마지막 설정값을 그대로 이어받음 (잔여연가 간섭 차단)
-                    baseLeave = prevData.baseLeave || 15;
-
-                    // ✅ 다음 연도 저축연가 규칙: 딱 한 번만 계산하여 저장. 이후 변경 안 함.
-                    let prevSavedTotalH = (prevData.savedLeaveD || 0) * 8 + (prevData.savedLeaveH || 0);
-                    let prevUsage = calculateLeaveUsage(prevYear);
-                    let prevUsedTotalH = prevUsage.used.d * 8 + prevUsage.used.h + prevUsage.planned.d * 8 + prevUsage.planned.h;
-                    
-                    let prevTotalH = (prevData.baseLeave * 8) + prevSavedTotalH;
-                    let prevCompH = (prevData.compD || 0) * 8;
-                    
-                    // 잔여연가 = 총연가 - 사용연가 - 예정연가 - 연가보상신청
-                    let prevRemainH = prevTotalH - prevUsedTotalH - prevCompH;
-
-                    // 다음연도 저축연가 = 전년도 저축연가 + 전년도 최종 잔여연가 - 전년도 연가보상신청
-                    let nextSavedTotalH = prevSavedTotalH + prevRemainH - prevCompH;
-
-                    let sign = nextSavedTotalH < 0 ? -1 : 1;
-                    let absH = Math.abs(nextSavedTotalH);
-                    savedD = sign * Math.floor(absH / 8);
-                    savedH = sign * (absH % 8);
-                }
-                
-                leaveData[year] = {
-                    baseLeave: baseLeave,
-                    savedLeaveD: savedD, 
-                    savedLeaveH: savedH, 
-                    compD: 0
-                };
-                saveLeaveData();
             }
         }
 
-        function updateLeaveModalUI() {
-            document.getElementById('leave-year-title').textContent = `${currentLeaveYear}년 연가`;
+        function updateLeaveUI(year) {
+            currentLeaveYear = year;
+            document.getElementById('leave-year-title').textContent = `${year}년 연가`;
 
-            if (currentLeaveYear === 2025) {
+            if (year === 2025) {
                 document.getElementById('leave-content-main').style.display = 'none';
                 document.getElementById('leave-content-2025').style.display = 'flex';
-                
-                if (!leaveData[2025]) leaveData[2025] = { baseLeave: 15, savedLeaveD: 0, savedLeaveH: 0, compD: 0 };
-                document.getElementById('leave-2025-saved-d').value = leaveData[2025].savedLeaveD || 0;
-                document.getElementById('leave-2025-saved-h').value = leaveData[2025].savedLeaveH || 0;
+                document.getElementById('leave-2025-saved-d').value = leaveData['2025']?.savedD || 0;
+                document.getElementById('leave-2025-saved-h').value = leaveData['2025']?.savedH || 0;
             } else {
-                document.getElementById('leave-content-2025').style.display = 'none';
                 document.getElementById('leave-content-main').style.display = 'flex';
+                document.getElementById('leave-content-2025').style.display = 'none';
 
-                initLeaveYear(currentLeaveYear);
-                let data = leaveData[currentLeaveYear];
-                let usage = calculateLeaveUsage(currentLeaveYear);
-                
-                // ✅ 저축연가는 현재 연도에서 고정값. 절대 실시간 변경 안 함.
-                let savedTotalH = (data.savedLeaveD * 8) + data.savedLeaveH;
-                
-                // ✅ 현재 연도 계산 규칙 적용
-                // 총연가 = 기본연가 + 저축연가
-                let totalH = (data.baseLeave * 8) + savedTotalH;
-                let usedTotalH = usage.used.d * 8 + usage.used.h;
-                let plannedTotalH = usage.planned.d * 8 + usage.planned.h;
-                let compH = (data.compD || 0) * 8;
-                
-                // 잔여연가 = 총연가 - 사용연가 - 예정연가 - 연가보상신청 (이전 년도 데이터 개입 불가)
-                let remainH = totalH - usedTotalH - plannedTotalH - compH;
-                
-                document.getElementById('leave-total-input').value = data.baseLeave;
-                
-                document.getElementById('leave-used-text').textContent = `${usage.used.d}일 ${usage.used.h}시간`;
-                document.getElementById('leave-planned-text').textContent = `${usage.planned.d}일 ${usage.planned.h}시간`;
-                
-                let sign = remainH < 0 ? "-" : "";
-                let absR = Math.abs(remainH);
-                document.getElementById('leave-remain-text').textContent = `${sign}${Math.floor(absR/8)}일 ${absR%8}시간`;
-                
-                document.getElementById('leave-comp-input').value = data.compD || 0;
-                
-                let sSign = savedTotalH < 0 ? "-" : "";
-                let absS = Math.abs(savedTotalH);
-                document.getElementById('leave-saved-display-text').textContent = `${sSign}${Math.floor(absS/8)}일 ${absS%8}H`;
+                let stats = getLeaveStats(year);
+
+                document.getElementById('leave-total-input').value = stats.totalD;
+                document.getElementById('leave-used-text').textContent = `${stats.usedD}일 ${stats.usedH}시간`;
+                document.getElementById('leave-planned-text').textContent = `${stats.plannedD}일 ${stats.plannedH}시간`;
+
+                let rSign = stats.remainHoursTotal < 0 ? "-" : "";
+                document.getElementById('leave-remain-text').textContent = `${rSign}${stats.remainD}일 ${stats.remainH}시간`;
+                document.getElementById('leave-remain-text').style.color = stats.remainHoursTotal < 0 ? '#f87171' : 'var(--accent-color)';
+
+                document.getElementById('leave-comp-input').value = stats.compD;
+                document.getElementById('leave-saved-display-text').textContent = `${stats.savedD}일 ${stats.savedH}H`;
             }
         }
 
         function setupLeaveModalEvents() {
             document.getElementById('trigger-leave-manage').addEventListener('click', () => {
-                currentLeaveYear = currentDate.getFullYear();
+                currentLeaveYear = currentDate.getFullYear(); 
                 if (currentLeaveYear < 2025) currentLeaveYear = 2025;
-                updateLeaveModalUI();
+                updateLeaveUI(currentLeaveYear);
                 document.getElementById('leave-modal').classList.add('open');
             });
 
@@ -1868,60 +1840,43 @@
             document.getElementById('leave-prev-year').addEventListener('click', () => {
                 if (currentLeaveYear > 2025) {
                     currentLeaveYear--;
-                    updateLeaveModalUI();
+                    updateLeaveUI(currentLeaveYear);
                 }
             });
 
             document.getElementById('leave-next-year').addEventListener('click', () => {
                 currentLeaveYear++;
-                updateLeaveModalUI();
+                updateLeaveUI(currentLeaveYear);
             });
 
             document.getElementById('save-leave-modal').addEventListener('click', () => {
                 if (currentLeaveYear === 2025) {
-                    let d = parseInt(document.getElementById('leave-2025-saved-d').value) || 0;
-                    let h = parseInt(document.getElementById('leave-2025-saved-h').value) || 0;
-                    leaveData[2025].savedLeaveD = d;
-                    leaveData[2025].savedLeaveH = h;
+                    if (!leaveData['2025']) leaveData['2025'] = {};
+                    leaveData['2025'].savedD = parseInt(document.getElementById('leave-2025-saved-d').value) || 0;
+                    leaveData['2025'].savedH = parseInt(document.getElementById('leave-2025-saved-h').value) || 0;
                 } else {
-                    let base = parseInt(document.getElementById('leave-total-input').value) || 0;
-                    let comp = parseInt(document.getElementById('leave-comp-input').value) || 0;
-                    leaveData[currentLeaveYear].baseLeave = base;
-                    leaveData[currentLeaveYear].compD = comp;
+                    if (!leaveData[currentLeaveYear]) leaveData[currentLeaveYear] = {};
+                    leaveData[currentLeaveYear].total = parseInt(document.getElementById('leave-total-input').value) || (currentLeaveYear === 2026 ? 16 : 18);
+                    leaveData[currentLeaveYear].comp = parseInt(document.getElementById('leave-comp-input').value) || 0;
                 }
                 saveLeaveData();
-                updateLeaveModalUI();
-                alert("연가 설정이 저장되었습니다.");
+                updateLeaveUI(currentLeaveYear);
+                alert("연가 정보가 정상적으로 저장되었습니다.");
+                refreshUI(); // 캘린더 색상이나 내용 변경이 있을 수 있으므로 리프레쉬
             });
         }
 
         // ==========================================
-        // 9. APP INITIALIZATION
+        // 9. APP BOOTSTRAP
         // ==========================================
-        async function backgroundLoadHolidays(year) {
-            await fetchHolidays(year - 1);
-            await fetchHolidays(year);
-            await fetchHolidays(year + 1);
+        async function initApp() {
+            await fetchHolidays(currentDate.getFullYear());
+            setupEventListeners();
+            renderGradeHistoryTable();
             refreshUI();
         }
 
-        function moveMonth(offset) {
-            currentDate.setMonth(currentDate.getMonth() + offset);
-            if (currentDate < limitMinDate) currentDate = new Date(limitMinDate.getFullYear(), limitMinDate.getMonth(), 1);
-            backgroundLoadHolidays(currentDate.getFullYear());
-        }
-
-        document.documentElement.setAttribute('data-theme', currentTheme);
-        themeSelector.value = currentTheme;
-        document.getElementById('global-cfg-start').value = globalConfig.startTime;
-        document.getElementById('global-cfg-end').value = globalConfig.endTime;
-        document.getElementById('global-cfg-friday-inc').checked = globalConfig.includeFriday || false;
-        document.getElementById('global-holiday-start').value = holidayConfig.startTime;
-        document.getElementById('global-holiday-end').value = holidayConfig.endTime;
-
-        renderGradeHistoryTable();
-        setupEventListeners();
-        backgroundLoadHolidays(currentDate.getFullYear());
+        initApp();
     </script>
 </body>
 </html>
