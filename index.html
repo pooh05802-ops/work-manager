@@ -257,7 +257,7 @@
                     <span class="material-symbols-outlined" style="font-size:1.15rem; margin-right:4px;">settings</span>근무관리
                 </div>
                 <div class="app-title" id="trigger-leave-manage" title="연가관리 열기" style="margin-left: 10px;">
-                    &nbsp;&nbsp;<span style="font-size:1.0em; margin-right:2px;">✈️</span>
+                    &nbsp;&nbsp;<span style="font-size:0.9em; margin-right:2px;">✈️</span>
                 </div>
             </div>
             <div class="month-selector">
@@ -954,14 +954,14 @@
                     if (activeType === '대휴' && daehyuTarget) {
                         const parts = daehyuTarget.split('-');
                         if(parts.length === 3) {
-                            displayTag = `<span class="mini-type-tag ${classDecorator}" data-move-from="${dateStr}" data-move-type="${activeType}" style="font-size:0.55rem; ${isFixed ? '' : 'cursor:pointer;'}">${activeType} <span style="font-size:0.43rem; font-weight:normal; opacity:0.9; letter-spacing:-0.5px;">${Number(parts[1])}/${Number(parts[2])}</span></span>`;
+                            displayTag = `<span class="mini-type-tag ${classDecorator}" data-move-from="${dateStr}" data-move-type="${activeType}" style="font-size:0.55rem; cursor:pointer;">${activeType} <span style="font-size:0.43rem; font-weight:normal; opacity:0.9; letter-spacing:-0.5px;">${Number(parts[1])}/${Number(parts[2])}</span></span>`;
                         } else {
-                            displayTag = `<span class="mini-type-tag ${classDecorator}" data-move-from="${dateStr}" data-move-type="${activeType}" style="${isFixed ? '' : 'cursor:pointer;'}">${activeType}</span>`;
+                            displayTag = `<span class="mini-type-tag ${classDecorator}" data-move-from="${dateStr}" data-move-type="${activeType}" style="cursor:pointer;">${activeType}</span>`;
                         }
                     } else if (activeType === '휴무' || activeType === '휴일근무') {
                         displayTag = `<span class="mini-type-tag ${classDecorator}">${activeType}</span>`;
                     } else {
-                        displayTag = `<span class="mini-type-tag ${classDecorator}" data-move-from="${dateStr}" data-move-type="${activeType}" style="${isFixed ? '' : 'cursor:pointer;'}">${activeType}</span>`;
+                        displayTag = `<span class="mini-type-tag ${classDecorator}" data-move-from="${dateStr}" data-move-type="${activeType}" style="cursor:pointer;">${activeType}</span>`;
                     }
                 } else {
                     displayTag = '<span class="mini-type-tag" style="visibility:hidden;">평일</span>';
@@ -997,14 +997,13 @@
                     </div>
                 `;
 
+                // ✅ 대휴 클릭 오류 수정: 조건식 삭제하고 모든 대휴/연가 이벤트 리스너 동작
                 const moveTags = dayCell.querySelectorAll('[data-move-from]');
                 moveTags.forEach(tag => {
-                    if (!isFixed || tag.getAttribute('data-move-type') !== '대휴') {
-                        tag.addEventListener('click', (e) => {
-                            e.stopPropagation();
-                            openDaehyuMovePopup(dateStr, tag.getAttribute('data-move-type'));
-                        });
-                    }
+                    tag.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        openDaehyuMovePopup(dateStr, tag.getAttribute('data-move-type'));
+                    });
                 });
 
                 dayCell.addEventListener('click', () => openTimeModal(dateStr, day, dayOfWeek, isHoli));
@@ -1198,6 +1197,7 @@
             document.getElementById('preview-meals').textContent = modalWorkTypeSelect.value === '휴일근무' ? `급량 ${res.lunch} (조식 0)` : `조식 ${res.breakfast} / 급량 ${res.lunch}`;
         }
 
+        // ✅ 대휴 모달 오류 수정: 이전 달, 현재 달, 다음 달(연도 변경 포함) 자유로운 이동 보장
         function openDaehyuMovePopup(fromKey, moveType = '대휴') {
             activeDaehyuSourceStr = fromKey;
             activeMoveTypeStr = moveType;
@@ -1210,16 +1210,22 @@
             select.innerHTML = '';
             const y = currentDate.getFullYear();
             const m = currentDate.getMonth();
-            const totalDays = new Date(y, m + 1, 0).getDate();
             
-            for(let d=1; d<=totalDays; d++) {
-                let dStr = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-                let opt = document.createElement('option');
-                opt.value = dStr;
-                let wd = ['일','월','화','수','목','금','토'][new Date(y,m,d).getDay()];
-                opt.textContent = `${m+1}월 ${d}일 (${wd})`;
-                if(dStr === fromKey) opt.selected = true;
-                select.appendChild(opt);
+            for (let offset = -1; offset <= 1; offset++) {
+                let targetDate = new Date(y, m + offset, 1);
+                let ty = targetDate.getFullYear();
+                let tm = targetDate.getMonth();
+                let totalDays = new Date(ty, tm + 1, 0).getDate();
+                
+                for(let d=1; d<=totalDays; d++) {
+                    let dStr = `${ty}-${String(tm+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                    let opt = document.createElement('option');
+                    opt.value = dStr;
+                    let wd = ['일','월','화','수','목','금','토'][new Date(ty,tm,d).getDay()];
+                    opt.textContent = `${ty}년 ${tm+1}월 ${d}일 (${wd})`;
+                    if(dStr === fromKey) opt.selected = true;
+                    select.appendChild(opt);
+                }
             }
             document.getElementById('modal-move-off').classList.add('open');
         }
@@ -1542,7 +1548,7 @@
             document.getElementById('id-btn-txt-export').addEventListener('click', () => {
                 const now = new Date();
                 const textFileName = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}.txt`;
-                const storageObj = { attendanceData, globalConfig, holidayConfig, gradeHistory, currentTheme };
+                const storageObj = { attendanceData, globalConfig, holidayConfig, gradeHistory, currentTheme, leaveData };
                 const blob = new Blob([JSON.stringify(storageObj, null, 2)], { type: 'text/plain;charset=utf-8;' });
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(blob);
@@ -1566,8 +1572,10 @@
                             if (parsedObj.holidayConfig) holidayConfig = parsedObj.holidayConfig;
                             if (parsedObj.gradeHistory) gradeHistory = parsedObj.gradeHistory;
                             if (parsedObj.currentTheme) currentTheme = parsedObj.currentTheme;
+                            if (parsedObj.leaveData) leaveData = parsedObj.leaveData;
 
                             saveStorage();
+                            saveLeaveData();
                             document.documentElement.setAttribute('data-theme', currentTheme);
                             themeSelector.value = currentTheme;
                             document.getElementById('global-cfg-start').value = globalConfig.startTime;
@@ -1682,200 +1690,174 @@
                 saveStorage(); timeModal.classList.remove('open'); refreshUI();
             });
 
+            // ✅ 잘려있던 부분의 완성 및 기존 데이터 보존 처리
             document.getElementById('btn-save-time-modal').addEventListener('click', () => {
                 initDayContainer(selectedDateStr, modalWorkTypeSelect.value);
 
                 let res = parseDailySheet(selectedDateStr, modalWorkTypeSelect.value, startTimeInput.value, endTimeInput.value);
-                let prevSuk = attendanceData[selectedDateStr].isSukjik;
-                let prevIl = attendanceData[selectedDateStr].isIljik;
-                let prevManual = attendanceData[selectedDateStr].manualOvertimeMins;
-                let prevDaehyu = attendanceData[selectedDateStr].daehyuTargetDate;
-                let inputMemo = document.getElementById('modal-day-memo').value;
+                let prevSuk = attendanceData[selectedDateStr].isSukjik || false;
+                let prevIl = attendanceData[selectedDateStr].isIljik || false;
+                let prevManual = attendanceData[selectedDateStr].manualOvertimeMins || 0;
+                let prevDaehyuTarget = attendanceData[selectedDateStr].daehyuTargetDate || "";
 
-                let pParts = selectedDateStr.split('-').map(Number);
-                let pDate = new Date(pParts[0], pParts[1]-1, pParts[2]);
-                let dayOfWeek = pDate.getDay();
+                attendanceData[selectedDateStr].workType = modalWorkTypeSelect.value;
+                attendanceData[selectedDateStr].startTime = startTimeInput.value;
+                attendanceData[selectedDateStr].endTime = endTimeInput.value;
+                attendanceData[selectedDateStr].isCustomTimeModified = true;
+                attendanceData[selectedDateStr].memo = document.getElementById('modal-day-memo').value || "";
                 
-                let defaults = getDefaultTimeForDay(modalWorkTypeSelect.value, dayOfWeek, selectedDateStr);
+                attendanceData[selectedDateStr].isSukjik = prevSuk;
+                attendanceData[selectedDateStr].isIljik = prevIl;
+                attendanceData[selectedDateStr].manualOvertimeMins = prevManual;
+                attendanceData[selectedDateStr].daehyuTargetDate = (modalWorkTypeSelect.value === '대휴') ? prevDaehyuTarget : "";
                 
-                let isTimeChanged = (startTimeInput.value !== defaults.start || endTimeInput.value !== defaults.end);
-
-                attendanceData[selectedDateStr] = {
-                    workType: modalWorkTypeSelect.value, 
-                    startTime: startTimeInput.value, 
-                    endTime: endTimeInput.value,     
-                    isSukjik: modalWorkTypeSelect.value === '대휴' ? false : prevSuk, 
-                    isIljik: prevIl, 
-                    overtimeMins: res.overtimeMins, 
-                    breakfast: res.breakfast, 
-                    lunch: res.lunch, 
-                    isCustomTimeModified: isTimeChanged, 
-                    memo: inputMemo,
-                    manualOvertimeMins: prevManual, 
-                    daehyuTargetDate: prevDaehyu
-                };
-
-                saveStorage(); 
-                timeModal.classList.remove('open'); 
-                refreshUI();
+                saveDataAndRefresh(selectedDateStr);
+                timeModal.classList.remove('open');
             });
-        }
-
-        function setupSwipeGestures() {
-            const zone = document.getElementById('calendar-swipe-zone');
-            let touchStartX = null; let touchStartY = null;
-            let touchEndX = null; let touchEndY = null;
-
-            zone.addEventListener('touchstart', (e) => { 
-                if (e.touches.length > 1) { 
-                    touchStartX = null; 
-                    return; 
-                }
-                touchStartX = e.changedTouches[0].screenX; 
-                touchStartY = e.changedTouches[0].screenY;
-            }, { passive: true });
-
-            zone.addEventListener('touchend', (e) => { 
-                if (touchStartX === null || e.changedTouches.length > 1) return;
-                touchEndX = e.changedTouches[0].screenX; 
-                touchEndY = e.changedTouches[0].screenY;
-                handleSwipeMove(); 
-            }, { passive: true });
-
-            function handleSwipeMove() {
-                const threshold = 50; 
-                if (Math.abs(touchEndY - touchStartY) > Math.abs(touchEndX - touchStartX)) return;
-
-                if (touchStartX - touchEndX > threshold) moveMonth(1);
-                else if (touchEndX - touchStartX > threshold) moveMonth(-1);
-            }
-        }
-
-        function moveMonth(offset) {
-            let nextMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + offset, 1);
-            if (nextMonth < limitMinDate) {
-                alert("2026년 1월 이전으로는 이동할 수 없습니다.");
-                return;
-            }
-            currentDate = nextMonth;
-            backgroundLoadHolidays(currentDate.getFullYear());
-        }
-
-        function backgroundLoadHolidays(year) {
-            refreshUI(); 
-            fetchHolidays(year).then(() => {
-                refreshUI(); 
-            });
+            
+            setupLeaveModalEvents();
+            setupMidnightRefresh();
+            buildExcelSelectors();
         }
 
         // ==========================================
-        // 8. 추가 요건: 연가 관리 로직
+        // 8. LEAVE MANAGEMENT LOGIC (연가 계산 로직 전면 수정본)
         // ==========================================
         let leaveData = safeLoad('user_leave_data', {});
         let currentLeaveYear = systemToday.getFullYear();
 
-        function getLeaveTotalForYear(year) {
-            if (leaveData[year] && leaveData[year].total !== undefined) {
-                return leaveData[year].total;
-            }
-            let y = year - 1;
-            while (y >= 2026) {
-                if (leaveData[y] && leaveData[y].total !== undefined) {
-                    return leaveData[y].total;
-                }
-                y--;
-            }
-            return 16; 
+        function saveLeaveData() {
+            localStorage.setItem('user_leave_data', JSON.stringify(leaveData));
         }
 
         function calculateLeaveUsage(year) {
-            let usedMins = 0;
-            let plannedMins = 0;
-            const startStr = `${year}-01-01`;
-            const endStr = `${year}-12-31`;
+            let usedD = 0, usedH = 0;
+            let plannedD = 0, plannedH = 0;
 
-            for (let dateStr in attendanceData) {
-                if (dateStr >= startStr && dateStr <= endStr) {
-                    let type = attendanceData[dateStr].workType;
-                    let cDate = new Date(dateStr);
-                    let isPast = cDate <= todayMidnight;
-                    
-                    let mins = 0;
-                    if (type === '연가') mins = 8 * 60;
-                    else if (type === '오전' || type === '오후' || type === '조퇴' || type === '지각') mins = 4 * 60;
-                    
-                    if (mins > 0) {
-                        if (isPast) usedMins += mins;
-                        else plannedMins += mins;
+            // ✅ 현재 연도 계산: 전년도 사용 내역 무시, 해당 연도 데이터만 실시간 계산 (0으로 시작)
+            Object.keys(attendanceData).forEach(dateStr => {
+                if (dateStr.startsWith(`${year}-`)) {
+                    let d = attendanceData[dateStr];
+                    if (d.workType === '연가' || d.workType === '조퇴' || d.workType === '지각' || d.workType === '오전' || d.workType === '오후') {
+                        let hoursToDeduct = 0;
+                        if (d.workType === '연가') hoursToDeduct = 8;
+                        else if (d.workType === '오후' || d.workType === '지각') hoursToDeduct = 4;
+                        else if (d.workType === '오전' || d.workType === '조퇴') hoursToDeduct = 4;
+                        
+                        let cDate = new Date(dateStr);
+                        if (cDate < todayMidnight) {
+                            usedH += hoursToDeduct;
+                        } else {
+                            plannedH += hoursToDeduct;
+                        }
                     }
                 }
-            }
-            return { usedMins, plannedMins };
+            });
+
+            usedD = Math.floor(usedH / 8); usedH = usedH % 8;
+            plannedD = Math.floor(plannedH / 8); plannedH = plannedH % 8;
+
+            return { used: {d: usedD, h: usedH}, planned: {d: plannedD, h: plannedH} };
         }
 
-        function updateLeaveModal() {
+        function initLeaveYear(year) {
+            if (!leaveData[year]) {
+                let baseLeave = 15;
+                let savedD = 0, savedH = 0;
+
+                if (year > 2025) {
+                    let prevYear = year - 1;
+                    if (!leaveData[prevYear]) {
+                        initLeaveYear(prevYear); 
+                    }
+                    let prevData = leaveData[prevYear];
+                    
+                    // ✅ 기본연가 규칙: 전년도 마지막 설정값을 그대로 이어받음 (잔여연가 간섭 차단)
+                    baseLeave = prevData.baseLeave || 15;
+
+                    // ✅ 다음 연도 저축연가 규칙: 딱 한 번만 계산하여 저장. 이후 변경 안 함.
+                    let prevSavedTotalH = (prevData.savedLeaveD || 0) * 8 + (prevData.savedLeaveH || 0);
+                    let prevUsage = calculateLeaveUsage(prevYear);
+                    let prevUsedTotalH = prevUsage.used.d * 8 + prevUsage.used.h + prevUsage.planned.d * 8 + prevUsage.planned.h;
+                    
+                    let prevTotalH = (prevData.baseLeave * 8) + prevSavedTotalH;
+                    let prevCompH = (prevData.compD || 0) * 8;
+                    
+                    // 잔여연가 = 총연가 - 사용연가 - 예정연가 - 연가보상신청
+                    let prevRemainH = prevTotalH - prevUsedTotalH - prevCompH;
+
+                    // 다음연도 저축연가 = 전년도 저축연가 + 전년도 최종 잔여연가 - 전년도 연가보상신청
+                    let nextSavedTotalH = prevSavedTotalH + prevRemainH - prevCompH;
+
+                    let sign = nextSavedTotalH < 0 ? -1 : 1;
+                    let absH = Math.abs(nextSavedTotalH);
+                    savedD = sign * Math.floor(absH / 8);
+                    savedH = sign * (absH % 8);
+                }
+                
+                leaveData[year] = {
+                    baseLeave: baseLeave,
+                    savedLeaveD: savedD, 
+                    savedLeaveH: savedH, 
+                    compD: 0
+                };
+                saveLeaveData();
+            }
+        }
+
+        function updateLeaveModalUI() {
             document.getElementById('leave-year-title').textContent = `${currentLeaveYear}년 연가`;
-            
+
             if (currentLeaveYear === 2025) {
                 document.getElementById('leave-content-main').style.display = 'none';
                 document.getElementById('leave-content-2025').style.display = 'flex';
-                let sd = leaveData['2025_saved'] || { d:0, h:0 };
-                document.getElementById('leave-2025-saved-d').value = sd.d;
-                document.getElementById('leave-2025-saved-h').value = sd.h;
+                
+                if (!leaveData[2025]) leaveData[2025] = { baseLeave: 15, savedLeaveD: 0, savedLeaveH: 0, compD: 0 };
+                document.getElementById('leave-2025-saved-d').value = leaveData[2025].savedLeaveD || 0;
+                document.getElementById('leave-2025-saved-h').value = leaveData[2025].savedLeaveH || 0;
             } else {
-                document.getElementById('leave-content-main').style.display = 'flex';
                 document.getElementById('leave-content-2025').style.display = 'none';
+                document.getElementById('leave-content-main').style.display = 'flex';
 
-                let total = getLeaveTotalForYear(currentLeaveYear);
-                let comp = (leaveData[currentLeaveYear] && leaveData[currentLeaveYear].comp) || 0;
+                initLeaveYear(currentLeaveYear);
+                let data = leaveData[currentLeaveYear];
+                let usage = calculateLeaveUsage(currentLeaveYear);
                 
-                document.getElementById('leave-total-input').value = total;
-
-                let { usedMins, plannedMins } = calculateLeaveUsage(currentLeaveYear);
+                // ✅ 저축연가는 현재 연도에서 고정값. 절대 실시간 변경 안 함.
+                let savedTotalH = (data.savedLeaveD * 8) + data.savedLeaveH;
                 
-                let savedTotalMins = 0;
-                if (currentLeaveYear === 2026) {
-                    let sd = leaveData['2025_saved'] || { d:0, h:0 };
-                    savedTotalMins = (sd.d * 8 * 60) + (sd.h * 60);
-                }
+                // ✅ 현재 연도 계산 규칙 적용
+                // 총연가 = 기본연가 + 저축연가
+                let totalH = (data.baseLeave * 8) + savedTotalH;
+                let usedTotalH = usage.used.d * 8 + usage.used.h;
+                let plannedTotalH = usage.planned.d * 8 + usage.planned.h;
+                let compH = (data.compD || 0) * 8;
                 
-                let usedText = `${Math.floor(usedMins / (8*60))}일 ${(usedMins % (8*60)) / 60}시간`;
-                let plannedText = `${Math.floor(plannedMins / (8*60))}일 ${(plannedMins % (8*60)) / 60}시간`;
+                // 잔여연가 = 총연가 - 사용연가 - 예정연가 - 연가보상신청 (이전 년도 데이터 개입 불가)
+                let remainH = totalH - usedTotalH - plannedTotalH - compH;
                 
-                document.getElementById('leave-used-text').textContent = usedText;
-                document.getElementById('leave-planned-text').textContent = plannedText;
-
-                let totalMins = total * 8 * 60 + savedTotalMins;
-                let remainMins = totalMins - usedMins - plannedMins;
+                document.getElementById('leave-total-input').value = data.baseLeave;
                 
-                let remainD = Math.floor(remainMins / (8*60));
-                let remainH = (remainMins % (8*60)) / 60;
-                let remainText = remainMins >= 0 ? `${remainD}일 ${remainH}시간` : `-${Math.abs(remainD)}일 ${Math.abs(remainH)}시간`;
+                document.getElementById('leave-used-text').textContent = `${usage.used.d}일 ${usage.used.h}시간`;
+                document.getElementById('leave-planned-text').textContent = `${usage.planned.d}일 ${usage.planned.h}시간`;
                 
-                let remainEl = document.getElementById('leave-remain-text');
-                remainEl.textContent = remainText;
-                remainEl.dataset.remainDays = remainMins / (8*60);
-                remainEl.dataset.remainTotalD = Math.floor(remainMins / (8*60));
-
-                let compInput = document.getElementById('leave-comp-input');
-                compInput.value = comp;
+                let sign = remainH < 0 ? "-" : "";
+                let absR = Math.abs(remainH);
+                document.getElementById('leave-remain-text').textContent = `${sign}${Math.floor(absR/8)}일 ${absR%8}시간`;
                 
-                if ((remainMins / (8*60)) < 1) {
-                    compInput.disabled = true;
-                    compInput.value = '';
-                } else {
-                    compInput.disabled = false;
-                }
-
-                let finalSavedMins = remainMins - ((parseInt(compInput.value)||0) * 8 * 60);
-                document.getElementById('leave-saved-display-text').textContent = `${Math.floor(finalSavedMins / (8*60))}일 ${Math.floor((finalSavedMins % (8*60))/60)}H`;
+                document.getElementById('leave-comp-input').value = data.compD || 0;
+                
+                let sSign = savedTotalH < 0 ? "-" : "";
+                let absS = Math.abs(savedTotalH);
+                document.getElementById('leave-saved-display-text').textContent = `${sSign}${Math.floor(absS/8)}일 ${absS%8}H`;
             }
         }
 
-        function setupLeaveEvents() {
+        function setupLeaveModalEvents() {
             document.getElementById('trigger-leave-manage').addEventListener('click', () => {
-                currentLeaveYear = systemToday.getFullYear();
-                updateLeaveModal();
+                currentLeaveYear = currentDate.getFullYear();
+                if (currentLeaveYear < 2025) currentLeaveYear = 2025;
+                updateLeaveModalUI();
                 document.getElementById('leave-modal').classList.add('open');
             });
 
@@ -1884,82 +1866,62 @@
             });
 
             document.getElementById('leave-prev-year').addEventListener('click', () => {
-                if(currentLeaveYear > 2025) {
+                if (currentLeaveYear > 2025) {
                     currentLeaveYear--;
-                    updateLeaveModal();
+                    updateLeaveModalUI();
                 }
             });
 
             document.getElementById('leave-next-year').addEventListener('click', () => {
                 currentLeaveYear++;
-                updateLeaveModal();
-            });
-            
-            document.getElementById('leave-comp-input').addEventListener('input', (e) => {
-                let remainEl = document.getElementById('leave-remain-text');
-                let remainTotalD = parseFloat(remainEl.dataset.remainTotalD) || 0;
-                let remainDays = parseFloat(remainEl.dataset.remainDays) || 0;
-                
-                if (remainDays < 1) {
-                    e.target.value = '';
-                } else {
-                    let val = parseInt(e.target.value) || 0;
-                    if (val > remainTotalD) {
-                        e.target.value = remainTotalD;
-                    }
-                }
-                
-                let comp = parseInt(e.target.value) || 0;
-                let remainMins = remainDays * 8 * 60;
-                let finalSavedMins = remainMins - (comp * 8 * 60);
-                document.getElementById('leave-saved-display-text').textContent = `${Math.floor(finalSavedMins / (8*60))}일 ${Math.floor((finalSavedMins % (8*60))/60)}H`;
+                updateLeaveModalUI();
             });
 
             document.getElementById('save-leave-modal').addEventListener('click', () => {
                 if (currentLeaveYear === 2025) {
                     let d = parseInt(document.getElementById('leave-2025-saved-d').value) || 0;
                     let h = parseInt(document.getElementById('leave-2025-saved-h').value) || 0;
-                    leaveData['2025_saved'] = { d, h };
+                    leaveData[2025].savedLeaveD = d;
+                    leaveData[2025].savedLeaveH = h;
                 } else {
-                    if (!leaveData[currentLeaveYear]) leaveData[currentLeaveYear] = {};
-                    leaveData[currentLeaveYear].total = parseInt(document.getElementById('leave-total-input').value) || getLeaveTotalForYear(currentLeaveYear);
-                    leaveData[currentLeaveYear].comp = parseInt(document.getElementById('leave-comp-input').value) || 0;
+                    let base = parseInt(document.getElementById('leave-total-input').value) || 0;
+                    let comp = parseInt(document.getElementById('leave-comp-input').value) || 0;
+                    leaveData[currentLeaveYear].baseLeave = base;
+                    leaveData[currentLeaveYear].compD = comp;
                 }
-                localStorage.setItem('user_leave_data', JSON.stringify(leaveData));
-                document.getElementById('leave-modal').classList.remove('open');
-                refreshUI();
-            });
-            
-            document.getElementById('leave-total-input').addEventListener('input', () => {
-                 if (!leaveData[currentLeaveYear]) leaveData[currentLeaveYear] = {};
-                 leaveData[currentLeaveYear].total = parseInt(document.getElementById('leave-total-input').value) || 0;
-                 updateLeaveModal();
+                saveLeaveData();
+                updateLeaveModalUI();
+                alert("연가 설정이 저장되었습니다.");
             });
         }
 
-        function init() {
-            document.documentElement.setAttribute('data-theme', currentTheme);
-            themeSelector.value = currentTheme;
-
-            document.getElementById('global-cfg-start').value = globalConfig.startTime;
-            document.getElementById('global-cfg-end').value = globalConfig.endTime;
-            document.getElementById('global-cfg-friday-inc').checked = globalConfig.includeFriday || false;
-            document.getElementById('global-holiday-start').value = holidayConfig.startTime;
-            document.getElementById('global-holiday-end').value = holidayConfig.endTime;
-            
-            renderGradeHistoryTable();
-            buildExcelSelectors();
-            setupEventListeners();
-            setupSwipeGestures();
-            setupMidnightRefresh();
-            setupLeaveEvents();
-
-            fetchHolidays(currentDate.getFullYear()).then(() => {
-                refreshUI();
-            });
+        // ==========================================
+        // 9. APP INITIALIZATION
+        // ==========================================
+        async function backgroundLoadHolidays(year) {
+            await fetchHolidays(year - 1);
+            await fetchHolidays(year);
+            await fetchHolidays(year + 1);
+            refreshUI();
         }
 
-        window.onload = init;
+        function moveMonth(offset) {
+            currentDate.setMonth(currentDate.getMonth() + offset);
+            if (currentDate < limitMinDate) currentDate = new Date(limitMinDate.getFullYear(), limitMinDate.getMonth(), 1);
+            backgroundLoadHolidays(currentDate.getFullYear());
+        }
+
+        document.documentElement.setAttribute('data-theme', currentTheme);
+        themeSelector.value = currentTheme;
+        document.getElementById('global-cfg-start').value = globalConfig.startTime;
+        document.getElementById('global-cfg-end').value = globalConfig.endTime;
+        document.getElementById('global-cfg-friday-inc').checked = globalConfig.includeFriday || false;
+        document.getElementById('global-holiday-start').value = holidayConfig.startTime;
+        document.getElementById('global-holiday-end').value = holidayConfig.endTime;
+
+        renderGradeHistoryTable();
+        setupEventListeners();
+        backgroundLoadHolidays(currentDate.getFullYear());
     </script>
 </body>
 </html>
