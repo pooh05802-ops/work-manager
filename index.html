@@ -338,7 +338,7 @@
                     </div>
                     <div class="leave-sub-row" style="margin-top:4px;">
                         <span class="leave-sub-title">저축일수</span>
-                        <span id="leave-saved-display-text" style="font-size:0.85rem; font-weight:bold; color:var(--text-white);">0일 0H</span>
+                        <span id="leave-saved-display-text" style="font-size:0.85rem; font-weight:bold; color:var(--text-white);">0일 0시간</span>
                     </div>
                 </div>
             </div>
@@ -348,7 +348,7 @@
                 <h4 style="text-align:center; color:var(--accent-color); font-size:0.95rem; margin-bottom: 8px;">2025년 이월 저축일수 설정</h4>
                 <div style="display:flex; justify-content:center; align-items:center; gap:8px;">
                     <input type="number" id="leave-2025-saved-d" class="leave-input" style="width:60px; font-size:1rem; text-align:center;" min="0"> <span style="font-size:0.9rem;">일</span>
-                    <input type="number" id="leave-2025-saved-h" class="leave-input" style="width:60px; font-size:1rem; text-align:center;" min="0" max="7"> <span style="font-size:0.9rem;">H</span>
+                    <input type="number" id="leave-2025-saved-h" class="leave-input" style="width:60px; font-size:1rem; text-align:center;" min="0" max="7"> <span style="font-size:0.9rem;">시간</span>
                 </div>
                 <p style="font-size:0.75rem; color:var(--text-muted); text-align:center; margin-top:8px; line-height: 1.4;">이곳에 저장된 값이<br>2026년의 기준 저축일수가 됩니다.</p>
             </div>
@@ -389,7 +389,7 @@
                 <div class="report-title"><span><span class="material-symbols-outlined" style="color:var(--accent-color); font-size:1rem; vertical-align:middle;">more_time</span> 초과근무수당</span></div>
                 <div class="report-row"><span id="rep-actual-limit-label">현재 실적 시간 (최대 50H 한도)</span> <span id="rep-actual-overtime" style="color:var(--accent-color); font-weight:bold;">0H 00M</span></div>
                 <div class="report-row"><span>기본 제공 시간</span> <span>10H 00M</span></div>
-                <div class="report-row"><span>시간외 단가</span> <span id="rep-hourly-rate">9급 기준 10,949원</span></div>
+                <div class="report-row"><span>초과근무 단가</span> <span id="rep-hourly-rate">9급 기준 10,949원</span></div>
                 <div class="report-result" style="color:var(--accent-color);" id="rep-overtime-amount">0원</div>
             </div>
 
@@ -466,7 +466,7 @@
                             <span class="preview-value" style="color:var(--accent-color);" id="preview-overtime">0H 00M</span>
                         </div>
                         <div>
-                            <span class="preview-label">식사 구분</span>
+                            <span class="preview-label">급량비</span>
                             <span class="preview-value" style="color:#ffb700;" id="preview-meals">조식 0 / 급량 0</span>
                         </div>
                     </div>
@@ -531,8 +531,8 @@
                             <tr>
                                 <th style="width:30%">적용일</th>
                                 <th style="width:20%">직급</th>
-                                <th style="width:23%">시간외</th>
-                                <th style="width:23%">휴일일당</th>
+                                <th style="width:23%">초과근무</th>
+                                <th style="width:23%">휴일근무</th>
                                 <th style="width:4%"></th>
                             </tr>
                         </thead>
@@ -544,8 +544,8 @@
                     <select id="new-hist-grade" class="history-input">
                         <option value="9">9급</option><option value="8">8급</option><option value="7">7급</option><option value="6">6급</option>
                     </select>
-                    <input type="number" id="new-hist-hourly" class="history-input" placeholder="시급">
-                    <input type="number" id="new-hist-holiday" class="history-input" placeholder="일당">
+                    <input type="number" id="new-hist-hourly" class="history-input" placeholder="초과">
+                    <input type="number" id="new-hist-holiday" class="history-input" placeholder="휴일">
                     <button type="button" id="btn-add-history" class="btn btn-primary" style="padding:4px 6px; font-size:0.7rem; border-radius:4px;">추가</button>
                 </div>
             </div>
@@ -559,7 +559,7 @@
             </div>
 
             <div class="setting-base-box">
-                <div class="setting-base-title">⑤ 데이터 백업 및 복구 (.txt)</div>
+                <div class="setting-base-title">⑤ 데이터 백업 및 복구</div>
                 <div style="display:flex; gap:6px;">
                     <button type="button" id="id-btn-txt-export" class="btn btn-outline" style="font-size:0.82rem; padding:7px; height: 35px; border-color: var(--border-color); color: var(--text-main);">내보내기</button>
                     <button type="button" id="id-btn-txt-import" class="btn btn-outline" style="font-size:0.82rem; padding:7px; height: 35px; border-color: var(--border-color); color: var(--text-main);">가져오기</button>
