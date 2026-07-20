@@ -1612,50 +1612,55 @@
                     let dStr = `${curr.getFullYear()}-${String(curr.getMonth() + 1).padStart(2, '0')}-${String(curr.getDate()).padStart(2, '0')}`;
                     let isPastOrToday = curr.getTime() <= todayMidnight.getTime();
                     let dayOfWeek = curr.getDay();
+                    let isOldRule = (curr.getFullYear() === 2026 && curr.getMonth() < 5);
 
-                    if (isPastOrToday) {
-                        if (!attendanceData[dStr]) {
-                            let isHoli = isLegalHoliday(curr.getFullYear(), curr.getMonth(), curr.getDate());
-                            let fallbackType = getBaseWorkType(curr.getFullYear(), curr.getMonth(), curr.getDate(), dayOfWeek, isHoli);
-                            let st = ""; let et = "";
-                            let isOldRule = (curr.getFullYear() === 2026 && curr.getMonth() < 5);
+                    // 1. 데이터가 아예 없을 때 새로 생성하는 로직
+                    if (isPastOrToday && !attendanceData[dStr]) {
+                        let isHoli = isLegalHoliday(curr.getFullYear(), curr.getMonth(), curr.getDate());
+                        let fallbackType = getBaseWorkType(curr.getFullYear(), curr.getMonth(), curr.getDate(), dayOfWeek, isHoli);
+                        let st = ""; let et = "";
 
-                            if (isOldRule) {
-                                if (fallbackType === '평일') { st = '05:00'; et = '16:00'; }
-                                else if (fallbackType === '오전') { st = '11:00'; et = '16:00'; }
-                                else if (fallbackType === '오후') { st = '05:00'; et = '11:00'; }
-                                else if (fallbackType === '휴일근무') { st = '06:00'; et = '11:00'; }
-                            } else {
-                                if (fallbackType === "평일") {
-                                    if (dayOfWeek === 5 && !oldGlobal.includeFriday) { st = ""; et = ""; } 
-                                    else { st = oldGlobal.startTime; et = oldGlobal.endTime; }
-                                }
-                                else if (fallbackType === "휴일근무") { st = oldHoliday.startTime; et = oldHoliday.endTime; }
-                                else if (['조퇴','지각','오전','오후'].includes(fallbackType)) { st = REGULAR_HOURS[fallbackType].start; et = REGULAR_HOURS[fallbackType].end; }
+                        if (isOldRule) {
+                            if (fallbackType === '평일') { st = '05:00'; et = '16:00'; }
+                            else if (fallbackType === '오전') { st = '11:00'; et = '16:00'; }
+                            else if (fallbackType === '오후') { st = '05:00'; et = '11:00'; }
+                            else if (fallbackType === '휴일근무') { st = '06:00'; et = '11:00'; }
+                        } else {
+                            if (fallbackType === "평일") {
+                                if (dayOfWeek === 5 && !oldGlobal.includeFriday) { st = ""; et = ""; } 
+                                else { st = oldGlobal.startTime; et = oldGlobal.endTime; }
                             }
-                            
-                            let res = parseDailySheet(dStr, fallbackType, st, et);
-                            attendanceData[dStr] = {
-                                workType: fallbackType, startTime: st, endTime: et,
-                                isSukjik: false, isIljik: false, overtimeMins: res.overtimeMins, breakfast: res.breakfast, lunch: res.lunch, isCustomTimeModified: false, memo: "", manualOvertimeMins: 0, daehyuTargetDate: ""
-                            };
+                            else if (fallbackType === "휴일근무") { st = oldHoliday.startTime; et = oldHoliday.endTime; }
+                            else if (['조퇴','지각','오전','오후'].includes(fallbackType)) { st = REGULAR_HOURS[fallbackType].start; et = REGULAR_HOURS[fallbackType].end; }
                         }
-                    } else {
+                        
+                        let res = parseDailySheet(dStr, fallbackType, st, et);
+                        attendanceData[dStr] = {
+                            workType: fallbackType, startTime: st, endTime: et,
+                            isSukjik: false, isIljik: false, overtimeMins: res.overtimeMins, breakfast: res.breakfast, lunch: res.lunch, isCustomTimeModified: false, memo: "", manualOvertimeMins: 0, daehyuTargetDate: ""
+                        };
+                    } 
+                    
+                    // 2. 이미 데이터가 존재하고, 사용자가 수동으로 시간을 수정하지 않은(기본값인) 경우 일괄 업데이트
+                    if (attendanceData[dStr] && !attendanceData[dStr].isCustomTimeModified) {
                         let saved = attendanceData[dStr];
-                        if (saved && !saved.isCustomTimeModified) {
-                            let type = saved.workType;
-                            let isOldRule = (curr.getFullYear() === 2026 && curr.getMonth() < 5);
-                            
-                            if (!isOldRule) {
-                                if (type === '평일') { 
-                                    if (dayOfWeek === 5 && !newGlobal.includeFriday) { saved.startTime = ""; saved.endTime = ""; } 
-                                    else { saved.startTime = newGlobal.startTime; saved.endTime = newGlobal.endTime; }
-                                }
-                                else if (type === '휴일근무') { saved.startTime = newHoliday.startTime; saved.endTime = newHoliday.endTime; }
+                        let type = saved.workType;
+                        
+                        if (isOldRule) {
+                            // 26년 1~5월 기간 강제 일괄 적용
+                            if (type === '평일') { saved.startTime = '05:00'; saved.endTime = '16:00'; }
+                            else if (type === '오전') { saved.startTime = '11:00'; saved.endTime = '16:00'; }
+                            else if (type === '오후') { saved.startTime = '05:00'; saved.endTime = '11:00'; }
+                            else if (type === '휴일근무') { saved.startTime = '06:00'; saved.endTime = '11:00'; }
+                        } else {
+                            if (type === '평일') { 
+                                if (dayOfWeek === 5 && !newGlobal.includeFriday) { saved.startTime = ""; saved.endTime = ""; } 
+                                else { saved.startTime = newGlobal.startTime; saved.endTime = newGlobal.endTime; }
                             }
-                            let res = parseDailySheet(dStr, saved.workType, saved.startTime, saved.endTime);
-                            saved.overtimeMins = res.overtimeMins; saved.breakfast = res.breakfast; saved.lunch = res.lunch;
+                            else if (type === '휴일근무') { saved.startTime = newHoliday.startTime; saved.endTime = newHoliday.endTime; }
                         }
+                        let res = parseDailySheet(dStr, saved.workType, saved.startTime, saved.endTime);
+                        saved.overtimeMins = res.overtimeMins; saved.breakfast = res.breakfast; saved.lunch = res.lunch;
                     }
                     curr.setDate(curr.getDate() + 1);
                 }
