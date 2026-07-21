@@ -1320,13 +1320,13 @@
                 });
 
                 daehyuInput.addEventListener('change', (e) => {
-                    initDayContainer(dStr);
+                    initDayContainer(dStr, activeType);
                     attendanceData[dStr].daehyuTargetDate = e.target.value;
                     saveDataAndRefresh(dStr);
                 });
 
                 manualInput.addEventListener('change', (e) => {
-                    initDayContainer(dStr);
+                    initDayContainer(dStr, activeType);
                     let val = parseFloat(e.target.value);
                     let capped = Math.min(val, 4);
                     attendanceData[dStr].manualOvertimeMins = isNaN(capped) ? 0 : capped * 60;
@@ -1335,7 +1335,7 @@
                 });
 
                 row.querySelector('.suk-chk').addEventListener('change', (e) => { 
-                    initDayContainer(dStr); 
+                    initDayContainer(dStr, activeType);
                     attendanceData[dStr].isSukjik = e.target.checked; 
                     
                     if (dayOfWeek === 5) {
@@ -1378,7 +1378,7 @@
                 });
                 
                 row.querySelector('.il-chk').addEventListener('change', (e) => { 
-                    initDayContainer(dStr); 
+                    initDayContainer(dStr, activeType);
                     attendanceData[dStr].isIljik = e.target.checked; 
                     
                     if (e.target.checked) {
