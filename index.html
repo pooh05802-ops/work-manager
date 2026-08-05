@@ -1098,17 +1098,13 @@
             
             document.getElementById('rep-actual-limit-label').textContent = `현재 실적 시간 (최대 ${maxOvertimeMins / 60}H 한도)`;
 
-            // 실적 표시는 무조건 한도(예: 50시간) 적용
+// 실적 표시는 무조건 한도(예: 50시간) 적용
             document.getElementById('dash-total-overtime').textContent = `${Math.floor(cappedActualMins / 60)}H ${String(cappedActualMins % 60).padStart(2, '0')}M`;
             
-            // 총 예상 시간이 50시간을 초과하면 괄호 안에 한도 적용된 시간과 실제 예상 시간을 함께 표시
-            if (rawTotalPredictedMins > maxOvertimeMins) {
-                document.getElementById('dash-predicted-overtime').textContent = `(고정 ${Math.floor(cappedTotalPredictedMins / 60)}h 00m / 실제예상 ${Math.floor(rawTotalPredictedMins / 60)}h ${String(rawTotalPredictedMins % 60).padStart(2, '0')}m)`;
-            } else {
-                document.getElementById('dash-predicted-overtime').textContent = `(예상 ${Math.floor(cappedTotalPredictedMins / 60)}h ${String(cappedTotalPredictedMins % 60).padStart(2, '0')}m)`;
-            }
+            // 제한 시간 초과 여부와 상관없이 항상 실제 예상(또는 달성) 시간으로 심플하게 표시
+            document.getElementById('dash-predicted-overtime').textContent = `(예상 ${Math.floor(rawTotalPredictedMins / 60)}h ${String(rawTotalPredictedMins % 60).padStart(2, '0')}m)`;
+            
             document.getElementById('dash-day-distribution').innerHTML = `평일 ${countNormal}<span class="dot-split">·</span>휴일 ${countHolidayWork}<span class="dot-split">·</span>휴무 ${countHuumu}`;
-
             let lh = Math.floor(cappedActualMins / 60);
             let finalCalculatedOvertimePay = (lh + 10) * lastDayRate.hourly;
 
