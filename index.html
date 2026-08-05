@@ -882,19 +882,29 @@
             firstDayIndex = firstDayIndex === 0 ? 6 : firstDayIndex - 1; 
             const lastDay = new Date(year, month + 1, 0).getDate();
 
-            for (let i = 0; i < firstDayIndex; i++) {
-                const emptyCell = document.createElement('div');
-                emptyCell.classList.add('day-cell', 'empty');
-                daysGrid.appendChild(emptyCell);
-            }
+            // 달력의 총 칸 수 계산 (첫 주 공백 + 당월 일수를 7의 배수로 올림)
+            const totalCells = Math.ceil((firstDayIndex + lastDay) / 7) * 7;
 
-            for (let day = 1; day <= lastDay; day++) {
+            // 빈 칸 채우기 없이, 하나의 루프로 전월/당월/익월을 모두 그립니다.
+            for (let i = 0; i < totalCells; i++) {
                 const dayCell = document.createElement('div');
                 dayCell.classList.add('day-cell');
                 
-                const cellDate = new Date(year, month, day);
+                // i 값을 이용해 날짜를 계산하면 Date 객체가 전월/익월을 자동으로 처리합니다.
+                const cellDate = new Date(year, month, i - firstDayIndex + 1);
+                
+                // 렌더링되는 셀의 실제 연, 월, 일
+                const cellYear = cellDate.getFullYear();
+                const cellMonth = cellDate.getMonth();
+                const day = cellDate.getDate();
+                
+                // 이번 달이 아닌 날짜(전월/다음월)는 투명도를 조절하여 흐리게 표시 (약 50%)
+                if (cellMonth !== month) {
+                    dayCell.style.opacity = '0.5'; 
+                }
+
                 const dayOfWeek = cellDate.getDay();
-                const isHoli = isLegalHoliday(year, month, day);
+                const isHoli = isLegalHoliday(cellYear, cellMonth, day);
                 
                 if (dayOfWeek === 0) dayCell.classList.add('sun');
                 if (dayOfWeek === 6) dayCell.classList.add('sat');
@@ -904,15 +914,15 @@
                 if (dayOfWeek === 0) dayCell.classList.add('sun-bg');
                 if (isHoli) dayCell.classList.add('hol-bg');
 
-                if (year === systemToday.getFullYear() && month === systemToday.getMonth() && day === systemToday.getDate()) {
+                if (cellYear === systemToday.getFullYear() && cellMonth === systemToday.getMonth() && day === systemToday.getDate()) {
                     dayCell.classList.add('today-match');
                 }
                 dayCell.classList.add(cellDate < todayMidnight ? 'past-day' : 'future-day');
 
-                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const dateStr = `${cellYear}-${String(cellMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                 dayCell.dataset.date = dateStr;
 
-                let computedType = getBaseWorkType(year, month, day, dayOfWeek, isHoli);
+                let computedType = getBaseWorkType(cellYear, cellMonth, day, dayOfWeek, isHoli);
                 let saved = attendanceData[dateStr];
                 
                 let activeType = saved ? saved.workType : computedType;
@@ -942,7 +952,7 @@
 
                 let isFixed = false;
                 if (activeType === '대휴') {
-                    let prevDate = new Date(year, month, day - 1);
+                    let prevDate = new Date(cellYear, cellMonth, day - 1);
                     let pStr = `${prevDate.getFullYear()}-${String(prevDate.getMonth()+1).padStart(2,'0')}-${String(prevDate.getDate()).padStart(2,'0')}`;
                     if (attendanceData[pStr] && attendanceData[pStr].isSukjik && dayOfWeek !== 0 && dayOfWeek !== 6 && !isHoli) {
                         isFixed = true;
@@ -1079,13 +1089,24 @@
             if (year === 2026 && monthIdx < 5) {
                 maxOvertimeMins = 57 * 60;
             }
+            // 실적 시간은 한도를 넘지 않게 고정
             let cappedActualMins = Math.min(actualOvertimeMins, maxOvertimeMins); 
-            let totalPredictedMins = cappedActualMins + predictedOvertimeMins;
+            
+            // 예상 시간: 한도 제한 없는 원본 값과 제한된 값을 분리해서 계산
+            let rawTotalPredictedMins = actualOvertimeMins + predictedOvertimeMins; 
+            let cappedTotalPredictedMins = Math.min(rawTotalPredictedMins, maxOvertimeMins);
             
             document.getElementById('rep-actual-limit-label').textContent = `현재 실적 시간 (최대 ${maxOvertimeMins / 60}H 한도)`;
 
+            // 실적 표시는 무조건 한도(예: 50시간) 적용
             document.getElementById('dash-total-overtime').textContent = `${Math.floor(cappedActualMins / 60)}H ${String(cappedActualMins % 60).padStart(2, '0')}M`;
-            document.getElementById('dash-predicted-overtime').textContent = `(예상 ${Math.floor(totalPredictedMins / 60)}h${String(totalPredictedMins % 60).padStart(2, '0')}m)`;
+            
+            // 총 예상 시간이 50시간을 초과하면 괄호 안에 한도 적용된 시간과 실제 예상 시간을 함께 표시
+            if (rawTotalPredictedMins > maxOvertimeMins) {
+                document.getElementById('dash-predicted-overtime').textContent = `(고정 ${Math.floor(cappedTotalPredictedMins / 60)}h 00m / 실제예상 ${Math.floor(rawTotalPredictedMins / 60)}h ${String(rawTotalPredictedMins % 60).padStart(2, '0')}m)`;
+            } else {
+                document.getElementById('dash-predicted-overtime').textContent = `(예상 ${Math.floor(cappedTotalPredictedMins / 60)}h ${String(cappedTotalPredictedMins % 60).padStart(2, '0')}m)`;
+            }
             document.getElementById('dash-day-distribution').innerHTML = `평일 ${countNormal}<span class="dot-split">·</span>휴일 ${countHolidayWork}<span class="dot-split">·</span>휴무 ${countHuumu}`;
 
             let lh = Math.floor(cappedActualMins / 60);
@@ -1106,7 +1127,14 @@
             document.getElementById('rep-bf2-val').textContent = `${bf2Count}개 = ${(bf2Count * 9000).toLocaleString()}원`;
             
             let limitedLunchCount = Math.min(rawLunchCount, 20);
-            document.getElementById('rep-lunch-val-summary').textContent = `${rawLunchCount}개 / 20개 한도 = ${(limitedLunchCount * 9000).toLocaleString()}원`;
+            const lunchSpan = document.getElementById('rep-lunch-val-summary');
+            
+            if (rawLunchCount > 20) {
+                // 20개를 초과할 경우 붉은색으로 오버된 개수 강조
+                lunchSpan.innerHTML = `<span style="color:#f87171;">${rawLunchCount}개 (${rawLunchCount - 20}개 초과)</span> / 20개 한도 = ${(limitedLunchCount * 9000).toLocaleString()}원`;
+            } else {
+                lunchSpan.textContent = `${rawLunchCount}개 / 20개 한도 = ${(limitedLunchCount * 9000).toLocaleString()}원`;
+            }
         }
 
         function renderGradeHistoryTable() {
