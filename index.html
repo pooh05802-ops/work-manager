@@ -501,7 +501,12 @@
             <div style="flex:1; overflow-y:auto;">
 
             <div class="setting-base-box">
-            <div class="setting-base-title">① 평일근무 기본 출퇴근 시간 설정</div>
+                <div class="setting-base-title" style="display:flex; justify-content:space-between; align-items:center;">
+                    ① 평일근무 기본 출퇴근 시간 설정
+                    <label style="font-size:0.75rem; color:var(--text-white); font-weight:normal; display:flex; align-items:center; gap:4px; cursor:pointer;">
+                        <input type="checkbox" id="global-cfg-friday-inc"> 금요일포함
+                    </label>
+                </div>
                 <div class="setting-base-inputs">
                     <input type="time" id="global-cfg-start" value="04:10">
                     <span style="font-size:0.75rem; color:var(--text-muted);">~</span>
@@ -517,17 +522,9 @@
                     <input type="time" id="global-holiday-end" value="05:50">
                 </div>
             </div>
+
             <div class="setting-base-box">
-                <div class="setting-base-title">③ 동절기 조식비 제외 설정</div>
-                <div class="setting-base-inputs" style="margin-bottom:4px;">
-                    <input type="date" id="global-winter-start">
-                    <span style="font-size:0.75rem; color:var(--text-muted);">~</span>
-                    <input type="date" id="global-winter-end">
-                </div>
-            </div>
-                
-            <div class="setting-base-box">
-                <div class="setting-base-title">④ 직급 및 수당 변경 이력</div>
+                <div class="setting-base-title">③ 직급 및 수당 변경 이력</div>
                 <div style="max-height: 110px; overflow-y: auto; margin-bottom:6px;">
                     <table class="history-table">
                         <thead>
@@ -554,7 +551,7 @@
             </div>
 
             <div class="setting-base-box">
-                <div class="setting-base-title">⑤ 엑셀로 내보내기</div>
+                <div class="setting-base-title">④ 엑셀로 내보내기</div>
                 <div class="excel-selector-box" style="display:flex; gap:6px; align-items: center;">
                     <select id="export-year" style="flex: 1; padding:7px; font-size:0.82rem; border:1px solid var(--border-color); border-radius:6px;"></select>
                     <button type="button" id="btn-excel-export" class="btn btn-primary" style="flex: 1.2; padding:7px; font-size:0.82rem; background-color:#10b981; color:#fff; border-radius:6px; height: 35px;">다운로드</button>
@@ -562,7 +559,7 @@
             </div>
 
             <div class="setting-base-box">
-                <div class="setting-base-title">⑥ 데이터 백업 및 복구</div>
+                <div class="setting-base-title">⑤ 데이터 백업 및 복구</div>
                 <div style="display:flex; gap:6px;">
                     <button type="button" id="id-btn-txt-export" class="btn btn-outline" style="font-size:0.82rem; padding:7px; height: 35px; border-color: var(--border-color); color: var(--text-main);">내보내기</button>
                     <button type="button" id="id-btn-txt-import" class="btn btn-outline" style="font-size:0.82rem; padding:7px; height: 35px; border-color: var(--border-color); color: var(--text-main);">가져오기</button>
@@ -571,7 +568,7 @@
             </div>
 
             <div class="setting-base-box" style="margin-bottom:15px;">
-                <div class="setting-base-title">⑦ 화면 테마 설정</div>
+                <div class="setting-base-title">⑥ 화면 테마 설정</div>
                 <select id="theme-selector" style="padding:8px; font-size:0.85rem; color: var(--select-text-color) !important; background-color: var(--card-bg) !important; border: 1px solid var(--border-color); border-radius: 6px; width: 100%;">
                     <option value="dark">다크 모드</option>
                     <option value="light">라이트 모드</option>
@@ -647,7 +644,6 @@
             try {
                 localStorage.setItem('overtime_data', JSON.stringify(attendanceData));
                 localStorage.setItem('global_work_config', JSON.stringify(globalConfig));
-                localStorage.setItem('winter_work_config', JSON.stringify(winterConfig));
                 localStorage.setItem('holiday_work_config', JSON.stringify(holidayConfig));
                 localStorage.setItem('user_grade_history', JSON.stringify(gradeHistory));
                 localStorage.setItem('app_theme', currentTheme);
@@ -660,23 +656,12 @@
         }
 
         let attendanceData = safeLoad('overtime_data', safeLoad('overtime_data_v1.0', {}));
-
-        let globalConfig = safeLoad('global_work_config', safeLoad('global_work_config_v1.0', { startTime: "04:10", endTime: "16:10" }));
-
-        let winterConfig = safeLoad('winter_work_config', { start: "", end: "" }); 
-
+        let globalConfig = safeLoad('global_work_config', safeLoad('global_work_config_v1.0', { startTime: "04:10", endTime: "16:10", includeFriday: false }));
         let holidayConfig = safeLoad('holiday_work_config', safeLoad('holiday_work_config_v1.0', { startTime: "03:45", endTime: "05:50" }));
         let currentTheme = localStorage.getItem('app_theme') || 'dark';
         let gradeHistory = safeLoad('user_grade_history', safeLoad('user_grade_history_v1.0', [
-          { date: "2026-01-01", grade: "9", hourly: 10949, holiday: 88017 }
+            { date: "2026-01-01", grade: "9", hourly: 10949, holiday: 88017 }
         ]));
-
-       document.addEventListener('DOMContentLoaded', () => {
-         let winterStartInput = document.getElementById('global-winter-start');
-         let winterEndInput = document.getElementById('global-winter-end');
-         if(winterStartInput) winterStartInput.value = winterConfig.start || "";
-         if(winterEndInput) winterEndInput.value = winterConfig.end || "";
-       });
 
         function setupMidnightRefresh() {
             const now = new Date();
@@ -789,14 +774,6 @@
                 } else if (workType === '휴일근무') {
                     overtimeMins = 0; breakfast = 0; lunch = 0;
                 }
-
-
-                if (winterConfig.start && winterConfig.end && dateStr) {
-                if (dateStr >= winterConfig.start && dateStr <= winterConfig.end) {
-                    breakfast = 0;
-                }
-                }
-                  
                 return { overtimeMins, breakfast, lunch };
             }
 
@@ -874,11 +851,9 @@
                 return { start: "", end: "" };
             }
 
-           if (type === '평일') {
-                if (dayOfWeek === 5) return { start: globalConfig.startTime, end: "15:00" }; 
-                return { start: globalConfig.startTime, end: globalConfig.endTime };    
-            }
-
+            if (type === '평일') {
+                if (dayOfWeek === 5 && !globalConfig.includeFriday) return { start: "", end: "" };
+                return { start: globalConfig.startTime, end: globalConfig.endTime };
             } else if (type === '휴일근무') {
                 return { start: holidayConfig.startTime, end: holidayConfig.endTime };
             } else if (['조퇴', '지각', '오전', '오후'].includes(type)) {
@@ -1644,9 +1619,6 @@
             });
 
             document.getElementById('btn-save-global-settings').addEventListener('click', () => {
-                winterConfig.start = document.getElementById('global-winter-start').value;
-                winterConfig.end = document.getElementById('global-winter-end').value;
-                
                 currentTheme = themeSelector.value;
                 document.documentElement.setAttribute('data-theme', currentTheme);
 
@@ -1656,7 +1628,7 @@
                 const newGlobal = { 
                     startTime: document.getElementById('global-cfg-start').value, 
                     endTime: document.getElementById('global-cfg-end').value,
-                   
+                    includeFriday: document.getElementById('global-cfg-friday-inc').checked
                 };
                 const newHoliday = { 
                     startTime: document.getElementById('global-holiday-start').value, 
@@ -1686,8 +1658,8 @@
                             else if (fallbackType === '휴일근무') { st = '06:00'; et = '11:00'; }
                         } else {
                             if (fallbackType === "평일") {
-                                 if (dayOfWeek === 5) { st = oldGlobal.startTime; et = "15:00"; } // 15시 고정으로 변경
-                                 else { st = oldGlobal.startTime; et = oldGlobal.endTime; }
+                                if (dayOfWeek === 5 && !oldGlobal.includeFriday) { st = ""; et = ""; } 
+                                else { st = oldGlobal.startTime; et = oldGlobal.endTime; }
                             }
                             else if (fallbackType === "휴일근무") { st = oldHoliday.startTime; et = oldHoliday.endTime; }
                             else if (['조퇴','지각','오전','오후'].includes(fallbackType)) { st = REGULAR_HOURS[fallbackType].start; et = REGULAR_HOURS[fallbackType].end; }
