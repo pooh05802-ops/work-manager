@@ -500,13 +500,8 @@
             </header>
             <div style="flex:1; overflow-y:auto;">
 
-            <div class="setting-base-box">
-                <div class="setting-base-title" style="display:flex; justify-content:space-between; align-items:center;">
-                    ① 평일근무 기본 출퇴근 시간 설정
-                    <label style="font-size:0.75rem; color:var(--text-white); font-weight:normal; display:flex; align-items:center; gap:4px; cursor:pointer;">
-                        <input type="checkbox" id="global-cfg-friday-inc"> 금요일포함
-                    </label>
-                </div>
+           <div class="setting-base-box">
+                <div class="setting-base-title">① 평일근무 기본 출퇴근 시간 설정</div>
                 <div class="setting-base-inputs">
                     <input type="time" id="global-cfg-start" value="04:10">
                     <span style="font-size:0.75rem; color:var(--text-muted);">~</span>
@@ -524,7 +519,18 @@
             </div>
 
             <div class="setting-base-box">
-                <div class="setting-base-title">③ 직급 및 수당 변경 이력</div>
+                <div class="setting-base-title">③ 동절기 조식비 제외 설정 (날짜 지정)</div>
+                <div class="setting-base-inputs" style="margin-bottom:4px; display:flex; gap:8px;">
+                    <input type="date" id="winter-cfg-start" style="flex:1;">
+                    <span style="font-size:0.75rem; color:var(--text-muted); align-self:center;">~</span>
+                    <input type="date" id="winter-cfg-end" style="flex:1;">
+                </div>
+            </div>
+
+
+
+            <div class="setting-base-box">
+                <div class="setting-base-title">④ 직급 및 수당 변경 이력</div>
                 <div style="max-height: 110px; overflow-y: auto; margin-bottom:6px;">
                     <table class="history-table">
                         <thead>
@@ -551,7 +557,7 @@
             </div>
 
             <div class="setting-base-box">
-                <div class="setting-base-title">④ 엑셀로 내보내기</div>
+                <div class="setting-base-title">⑤ 엑셀로 내보내기</div>
                 <div class="excel-selector-box" style="display:flex; gap:6px; align-items: center;">
                     <select id="export-year" style="flex: 1; padding:7px; font-size:0.82rem; border:1px solid var(--border-color); border-radius:6px;"></select>
                     <button type="button" id="btn-excel-export" class="btn btn-primary" style="flex: 1.2; padding:7px; font-size:0.82rem; background-color:#10b981; color:#fff; border-radius:6px; height: 35px;">다운로드</button>
@@ -559,7 +565,7 @@
             </div>
 
             <div class="setting-base-box">
-                <div class="setting-base-title">⑤ 데이터 백업 및 복구</div>
+                <div class="setting-base-title">⑥ 데이터 백업 및 복구</div>
                 <div style="display:flex; gap:6px;">
                     <button type="button" id="id-btn-txt-export" class="btn btn-outline" style="font-size:0.82rem; padding:7px; height: 35px; border-color: var(--border-color); color: var(--text-main);">내보내기</button>
                     <button type="button" id="id-btn-txt-import" class="btn btn-outline" style="font-size:0.82rem; padding:7px; height: 35px; border-color: var(--border-color); color: var(--text-main);">가져오기</button>
@@ -568,7 +574,7 @@
             </div>
 
             <div class="setting-base-box" style="margin-bottom:15px;">
-                <div class="setting-base-title">⑥ 화면 테마 설정</div>
+                <div class="setting-base-title">⑦ 화면 테마 설정</div>
                 <select id="theme-selector" style="padding:8px; font-size:0.85rem; color: var(--select-text-color) !important; background-color: var(--card-bg) !important; border: 1px solid var(--border-color); border-radius: 6px; width: 100%;">
                     <option value="dark">다크 모드</option>
                     <option value="light">라이트 모드</option>
@@ -630,45 +636,42 @@
         // ==========================================
         // 2. CORE UTILITIES (STORAGE & UI COMPACT)
         // ==========================================
-        function safeLoad(key, fallback) {
-            try {
-                const val = localStorage.getItem(key);
-                if (!val) return fallback;
-                return JSON.parse(val);
-            } catch (e) {
-                return fallback;
-            }
-        }
 
+// ---------------- 기존 코드 ----------------
+        // 2. CORE UTILITIES (STORAGE & UI COMPACT)
         function saveStorage() {
             try {
                 localStorage.setItem('overtime_data', JSON.stringify(attendanceData));
                 localStorage.setItem('global_work_config', JSON.stringify(globalConfig));
                 localStorage.setItem('holiday_work_config', JSON.stringify(holidayConfig));
+                localStorage.setItem('winter_work_config', JSON.stringify(winterConfig)); // ★추가됨: 동절기 데이터 저장
                 localStorage.setItem('user_grade_history', JSON.stringify(gradeHistory));
                 localStorage.setItem('app_theme', currentTheme);
-            } catch (e) {}
+            } catch (e) {
+                console.error("Storage save error:", e);
+            }
         }
 
-        function refreshUI() {
-            renderCalendar();
-            updateDashboard();
+        function safeLoad(key, fallback) {
+            try {
+                let val = localStorage.getItem(key);
+                return val ? JSON.parse(val) : fallback;
+            } catch (e) {
+                return fallback;
+            }
         }
 
+        // --- 변수(데이터 주머니) 선언 ---
         let attendanceData = safeLoad('overtime_data', safeLoad('overtime_data_v1.0', {}));
-        let globalConfig = safeLoad('global_work_config', safeLoad('global_work_config_v1.0', { startTime: "04:10", endTime: "16:10", includeFriday: false }));
+        
+        // (금요일 포함 체크박스 옵션은 삭제되었으므로 startTime, endTime만 남깁니다)
+        let globalConfig = safeLoad('global_work_config', safeLoad('global_work_config_v1.0', { startTime: "04:10", endTime: "16:10" }));
+        
         let holidayConfig = safeLoad('holiday_work_config', safeLoad('holiday_work_config_v1.0', { startTime: "03:45", endTime: "05:50" }));
-        let currentTheme = localStorage.getItem('app_theme') || 'dark';
-        let gradeHistory = safeLoad('user_grade_history', safeLoad('user_grade_history_v1.0', [
-            { date: "2026-01-01", grade: "9", hourly: 10949, holiday: 88017 }
-        ]));
+        
+        // ★추가됨: 동절기 날짜를 불러오는 변수 (없으면 빈칸)
+        let winterConfig = safeLoad('winter_work_config', { start: "", end: "" });
 
-        function setupMidnightRefresh() {
-            const now = new Date();
-            const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 1, 0); 
-            const diff = nextMidnight.getTime() - now.getTime();
-            setTimeout(() => { location.reload(); }, diff);
-        }
 
         // ==========================================
         // 3. DATE & HOLIDAY CALCULATION LOGIC
@@ -774,6 +777,14 @@
                 } else if (workType === '휴일근무') {
                     overtimeMins = 0; breakfast = 0; lunch = 0;
                 }
+
+// 동절기 설정에 포함되는 기간이면 조식비 0으로 초기화
+            if (winterConfig && winterConfig.start && winterConfig.end && dateStr) {
+                if (dateStr >= winterConfig.start && dateStr <= winterConfig.end) {
+                    breakfast = 0;
+                }
+            }
+              
                 return { overtimeMins, breakfast, lunch };
             }
 
@@ -851,9 +862,14 @@
                 return { start: "", end: "" };
             }
 
-            if (type === '평일') {
-                if (dayOfWeek === 5 && !globalConfig.includeFriday) return { start: "", end: "" };
+                if (type === '평일') {
+                if (dayOfWeek === 5) {
+                    // 금요일인 경우 출근은 셋팅값, 퇴근은 15:00 고정
+                    return { start: globalConfig.startTime, end: "15:00" };
+                }
                 return { start: globalConfig.startTime, end: globalConfig.endTime };
+            }
+                
             } else if (type === '휴일근무') {
                 return { start: holidayConfig.startTime, end: holidayConfig.endTime };
             } else if (['조퇴', '지각', '오전', '오후'].includes(type)) {
@@ -1458,9 +1474,48 @@
         function setupEventListeners() {
             document.getElementById('trigger-report-popup').addEventListener('click', () => reportModal.classList.add('open'));
             document.getElementById('trigger-config-popup').addEventListener('click', () => openConfigListModal());
+
+            // 환경설정 창 열기 버튼 동작 (동절기 불러오기 추가)
             document.getElementById('trigger-global-config').addEventListener('click', () => {
                 document.getElementById('export-year').value = currentDate.getFullYear();
+                
+                // 기존 출퇴근 시간 셋팅
+                document.getElementById('global-cfg-start').value = globalConfig.startTime;
+                document.getElementById('global-cfg-end').value = globalConfig.endTime;
+                if (document.getElementById('global-holiday-start')) {
+                    document.getElementById('global-holiday-start').value = holidayConfig.startTime;
+                    document.getElementById('global-holiday-end').value = holidayConfig.endTime;
+                }
+                
+                // 동절기 설정값 셋팅
+                if (document.getElementById('winter-cfg-start')) {
+                    document.getElementById('winter-cfg-start').value = winterConfig.start || "";
+                    document.getElementById('winter-cfg-end').value = winterConfig.end || "";
+                }
+                
                 globalConfigModal.classList.add('open');
+            });
+
+            // 환경설정 모달 내 '시스템 적용 및 저장' 버튼 동작 (동절기 저장 추가)
+            document.getElementById('btn-save-global-settings').addEventListener('click', () => {
+                // 입력된 평일/휴일 출퇴근 시간 저장
+                globalConfig.startTime = document.getElementById('global-cfg-start').value;
+                globalConfig.endTime = document.getElementById('global-cfg-end').value;
+                if (document.getElementById('global-holiday-start')) {
+                    holidayConfig.startTime = document.getElementById('global-holiday-start').value;
+                    holidayConfig.endTime = document.getElementById('global-holiday-end').value;
+                }
+                
+                // 입력된 동절기 날짜 저장
+                if (document.getElementById('winter-cfg-start')) {
+                    winterConfig.start = document.getElementById('winter-cfg-start').value;
+                    winterConfig.end = document.getElementById('winter-cfg-end').value;
+                }
+
+                saveStorage(); 
+                globalConfigModal.classList.remove('open');
+                refreshUI(); 
+                alert('시스템 환경설정이 저장되었습니다.');
             });
             
             document.getElementById('close-report-modal').addEventListener('click', () => reportModal.classList.remove('open'));
