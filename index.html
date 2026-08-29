@@ -1172,13 +1172,18 @@
         // ==========================================
         // 6. MODAL INTERACTION CONTROLLERS
         // ==========================================
+
         function openTimeModal(dateStr, dayNum, dayOfWeek, isHoli) {
             selectedDateStr = dateStr;
             selectedDayOfWeek = dayOfWeek;
-            
+    
+    
+            const actualMonth = parseInt(dateStr.split('-')[1], 10); 
+
             document.getElementById('modal-date-day').textContent = dayNum;
-            document.getElementById('modal-date-month-year').textContent = `${currentDate.getMonth() + 1}월`;
+            document.getElementById('modal-date-month-year').textContent = `${actualMonth}월`; // 추출한 월 적용
             document.getElementById('modal-date-weekday').textContent = ['일', '월', '화', '수', '목', '금', '토'][dayOfWeek];
+
 
             let saved = attendanceData[dateStr];
             modalWorkTypeSelect.value = saved ? saved.workType : getBaseWorkType(currentDate.getFullYear(), currentDate.getMonth(), dayNum, dayOfWeek, isHoli);
@@ -1239,12 +1244,14 @@
             document.getElementById('modal-move-off').classList.add('open');
         }
 
-        function findLatestAvailableWeekday(startDateStr) {
+
+       function findLatestAvailableWeekday(startDateStr) {
             let parts = startDateStr.split('-');
             let y = parseInt(parts[0]), m = parseInt(parts[1]) - 1, d = parseInt(parts[2]);
             let bestStr = null;
-            for (let i = 28; i >= 1; i--) {
-                let temp = new Date(y, m, d + i);
+            for (let i = 42; i >= 1; i--) {
+            let temp = new Date(y, m, d + i);
+                
                 let ty = temp.getFullYear(), tm = temp.getMonth(), td = temp.getDate();
                 let tDay = temp.getDay();
                 if (tDay === 0 || tDay === 6) continue;
