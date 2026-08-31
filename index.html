@@ -346,7 +346,7 @@
                     <input type="number" id="leave-2025-saved-d" class="leave-input" style="width:60px; font-size:1rem; text-align:center;" min="0"> <span style="font-size:0.9rem;">일</span>
                     <input type="number" id="leave-2025-saved-h" class="leave-input" style="width:60px; font-size:1rem; text-align:center;" min="0" max="7"> <span style="font-size:0.9rem;">시간</span>
                 </div>
-                <p style="font-size:0.75rem; color:var(--text-muted); text-align:center; margin-top:8px; line-height: 1.4;">이곳에 저장된 값이<br>2026년의 기준 저축일수가 됩니다.</p>
+                <p style="font-size:0.75rem; color:var(--text-muted); text-align:center; margin-top:8px; line-height: 1.4;">이곳에 저장된 값이<br>2026년의 기준 저축일킵니다.</p>
             </div>
 
             <div class="modal-actions" style="margin-top:16px;">
@@ -514,7 +514,28 @@
             </div>
 
             <div class="setting-base-box">
-                <div class="setting-base-title">③ 직급 및 수당 변경 이력</div>
+                <div class="setting-base-title">③ 동절기 조식 제외 설정</div>
+                <div style="max-height: 110px; overflow-y: auto; margin-bottom:6px;">
+                    <table class="history-table">
+                        <thead>
+                            <tr>
+                                <th style="width:40%">시작일</th>
+                                <th style="width:40%">종료일</th>
+                                <th style="width:20%"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="winter-history-tbody"></tbody>
+                    </table>
+                </div>
+                <div style="display:grid; grid-template-columns: 1fr 1fr auto; gap:4px; align-items:center; margin-top:8px;">
+                    <input type="date" id="new-winter-start" class="history-input">
+                    <input type="date" id="new-winter-end" class="history-input">
+                    <button type="button" id="btn-add-winter" class="btn btn-primary" style="padding:4px 6px; font-size:0.7rem; border-radius:4px;">추가</button>
+                </div>
+            </div>
+
+            <div class="setting-base-box">
+                <div class="setting-base-title">④ 직급 및 수당 변경 이력</div>
                 <div style="max-height: 110px; overflow-y: auto; margin-bottom:6px;">
                     <table class="history-table">
                         <thead>
@@ -541,7 +562,7 @@
             </div>
 
             <div class="setting-base-box">
-                <div class="setting-base-title">④ 엑셀로 내보내기</div>
+                <div class="setting-base-title">⑤ 엑셀로 내보내기</div>
                 <div class="excel-selector-box" style="display:flex; gap:6px; align-items: center;">
                     <select id="export-year" style="flex: 1; padding:7px; font-size:0.82rem; border:1px solid var(--border-color); border-radius:6px;"></select>
                     <button type="button" id="btn-excel-export" class="btn btn-primary" style="flex: 1.2; padding:7px; font-size:0.82rem; background-color:#10b981; color:#fff; border-radius:6px; height: 35px;">다운로드</button>
@@ -549,7 +570,7 @@
             </div>
 
             <div class="setting-base-box">
-                <div class="setting-base-title">⑤ 데이터 백업 및 복구</div>
+                <div class="setting-base-title">⑥ 데이터 백업 및 복구</div>
                 <div style="display:flex; gap:6px;">
                     <button type="button" id="id-btn-txt-export" class="btn btn-outline" style="font-size:0.82rem; padding:7px; height: 35px; border-color: var(--border-color); color: var(--text-main);">내보내기</button>
                     <button type="button" id="id-btn-txt-import" class="btn btn-outline" style="font-size:0.82rem; padding:7px; height: 35px; border-color: var(--border-color); color: var(--text-main);">가져오기</button>
@@ -558,7 +579,7 @@
             </div>
 
             <div class="setting-base-box" style="margin-bottom:15px;">
-                <div class="setting-base-title">⑥ 화면 테마 설정</div>
+                <div class="setting-base-title">⑦ 화면 테마 설정</div>
                 <select id="theme-selector" style="padding:8px; font-size:0.85rem; color: var(--select-text-color) !important; background-color: var(--card-bg) !important; border: 1px solid var(--border-color); border-radius: 6px; width: 100%;">
                     <option value="dark">다크 모드</option>
                     <option value="light">라이트 모드</option>
@@ -616,6 +637,7 @@
         const endTimeInput = document.getElementById('end-time');
         const themeSelector = document.getElementById('theme-selector');
         const gradeHistoryTbody = document.getElementById('grade-history-tbody');
+        const winterHistoryTbody = document.getElementById('winter-history-tbody'); // 동절기 테이블
 
         // ==========================================
         // 2. CORE UTILITIES (STORAGE & UI COMPACT)
@@ -637,6 +659,7 @@
                 localStorage.setItem('holiday_work_config', JSON.stringify(holidayConfig));
                 localStorage.setItem('user_grade_history', JSON.stringify(gradeHistory));
                 localStorage.setItem('app_theme', currentTheme);
+                localStorage.setItem('winter_config', JSON.stringify(winterConfig)); // 동절기 데이터 저장
             } catch (e) {}
         }
 
@@ -652,6 +675,7 @@
         let gradeHistory = safeLoad('user_grade_history', safeLoad('user_grade_history_v1.0', [
             { date: "2026-01-01", grade: "9", hourly: 10949, holiday: 88017 }
         ]));
+        let winterConfig = safeLoad('winter_config', []); // 동절기 설정 로드
 
         function setupMidnightRefresh() {
             const now = new Date();
@@ -753,6 +777,24 @@
                 if (y === 2026 && m < 5) isOldRule = true;
             }
 
+            // 동절기 조식 제외 룰 검사
+            let winterApplied = false;
+            if (dateStr) {
+                // 1. 현재 설정된 규칙 확인
+                for (let i = 0; i < winterConfig.length; i++) {
+                    if (dateStr >= winterConfig[i].start && dateStr <= winterConfig[i].end) {
+                        winterApplied = true;
+                        break;
+                    }
+                }
+                // 2. 이미 지나간 날(확정된 데이터)이고, 과거에 설정이 적용되어 저장되었다면 규칙 삭제와 무관하게 유지
+                const parts = dateStr.split('-');
+                let targetDate = new Date(parts[0], parts[1] - 1, parts[2]);
+                if (!winterApplied && targetDate < todayMidnight && attendanceData[dateStr] && attendanceData[dateStr].winterApplied) {
+                    winterApplied = true;
+                }
+            }
+
             if (isOldRule) {
                 let overtimeMins = 0; let breakfast = 0; let lunch = 0;
                 if (workType === '평일') {
@@ -764,11 +806,16 @@
                 } else if (workType === '휴일근무') {
                     overtimeMins = 0; breakfast = 0; lunch = 0;
                 }
-                return { overtimeMins, breakfast, lunch };
+                
+                if (winterApplied) breakfast = 0; // 동절기 제외
+                return { overtimeMins, breakfast, lunch, winterApplied };
             }
 
             let overtimeMins = 0; let breakfast = 0; let lunch = 0;
-            if (!startVal || !endVal || startVal === "" || endVal === "") return { overtimeMins, breakfast, lunch };
+            if (!startVal || !endVal || startVal === "" || endVal === "") {
+                if (winterApplied) breakfast = 0;
+                return { overtimeMins, breakfast, lunch, winterApplied };
+            }
 
             const [sH, sM] = startVal.split(':').map(Number);
             const [eH, eM] = endVal.split(':').map(Number);
@@ -822,7 +869,11 @@
                 lunch = actualWorkMins >= 120 ? 1 : 0;
             }
 
-            return { overtimeMins, breakfast, lunch };
+            if (winterApplied) {
+                breakfast = 0; // 동절기 적용시 조식 최종 무효화
+            }
+
+            return { overtimeMins, breakfast, lunch, winterApplied };
         }
 
         function getDefaultTimeForDay(type, dayOfWeek, dateStr) {
@@ -872,23 +923,18 @@
             firstDayIndex = firstDayIndex === 0 ? 6 : firstDayIndex - 1; 
             const lastDay = new Date(year, month + 1, 0).getDate();
 
-            // 달력의 총 칸 수 계산 (첫 주 공백 + 당월 일수를 7의 배수로 올림)
             const totalCells = Math.ceil((firstDayIndex + lastDay) / 7) * 7;
 
-            // 빈 칸 채우기 없이, 하나의 루프로 전월/당월/익월을 모두 그립니다.
             for (let i = 0; i < totalCells; i++) {
                 const dayCell = document.createElement('div');
                 dayCell.classList.add('day-cell');
                 
-                // i 값을 이용해 날짜를 계산하면 Date 객체가 전월/익월을 자동으로 처리합니다.
                 const cellDate = new Date(year, month, i - firstDayIndex + 1);
                 
-                // 렌더링되는 셀의 실제 연, 월, 일
                 const cellYear = cellDate.getFullYear();
                 const cellMonth = cellDate.getMonth();
                 const day = cellDate.getDate();
                 
-                // 이번 달이 아닌 날짜(전월/다음월)는 투명도를 조절하여 흐리게 표시 (약 50%)
                 if (cellMonth !== month) {
                     dayCell.style.opacity = '0.5'; 
                 }
@@ -1079,19 +1125,14 @@
             if (year === 2026 && monthIdx < 5) {
                 maxOvertimeMins = 57 * 60;
             }
-            // 실적 시간은 한도를 넘지 않게 고정
             let cappedActualMins = Math.min(actualOvertimeMins, maxOvertimeMins); 
             
-            // 예상 시간: 한도 제한 없는 원본 값과 제한된 값을 분리해서 계산
             let rawTotalPredictedMins = actualOvertimeMins + predictedOvertimeMins; 
-            let cappedTotalPredictedMins = Math.min(rawTotalPredictedMins, maxOvertimeMins);
             
             document.getElementById('rep-actual-limit-label').textContent = `현재 실적 시간 (최대 ${maxOvertimeMins / 60}H 한도)`;
 
-// 실적 표시는 무조건 한도(예: 50시간) 적용
             document.getElementById('dash-total-overtime').textContent = `${Math.floor(cappedActualMins / 60)}H ${String(cappedActualMins % 60).padStart(2, '0')}M`;
             
-            // 제한 시간 초과 여부와 상관없이 항상 실제 예상(또는 달성) 시간으로 심플하게 표시
             document.getElementById('dash-predicted-overtime').textContent = `(예상 ${Math.floor(rawTotalPredictedMins / 60)}h ${String(rawTotalPredictedMins % 60).padStart(2, '0')}m)`;
             
             document.getElementById('dash-day-distribution').innerHTML = `평일 ${countNormal}<span class="dot-split">·</span>휴일 ${countHolidayWork}<span class="dot-split">·</span>휴무 ${countHuumu}`;
@@ -1106,7 +1147,6 @@
             document.getElementById('rep-holiday-rate-label').textContent = `${lastDayRate.grade}급 기준 ${lastDayRate.holiday.toLocaleString()}원`;
             document.getElementById('rep-holiday-amount').textContent = `${(Math.floor(totalHolidayPay / 10) * 10).toLocaleString()}원`;
             
-            // 요건 수정 반영: 월간 정산 급량비 텍스트 서식
             document.getElementById('rep-meal-live-performance').textContent = `(현재 조식 ${actBf1}개 ${actBf2}개 / 급량 ${Math.min(actLunch, 20)}개)`;
 
             document.getElementById('rep-bf1-val').textContent = `${bf1Count}개 = ${(bf1Count * 9000).toLocaleString()}원`;
@@ -1116,7 +1156,6 @@
             const lunchSpan = document.getElementById('rep-lunch-val-summary');
             
             if (rawLunchCount > 20) {
-                // 20개를 초과할 경우 붉은색으로 오버된 개수 강조
                 lunchSpan.innerHTML = `<span style="color:#f87171;">${rawLunchCount}개 (${rawLunchCount - 20}개 초과)</span> / 20개 한도 = ${(limitedLunchCount * 9000).toLocaleString()}원`;
             } else {
                 lunchSpan.textContent = `${rawLunchCount}개 / 20개 한도 = ${(limitedLunchCount * 9000).toLocaleString()}원`;
@@ -1148,6 +1187,25 @@
             });
         }
 
+        function renderWinterHistoryTable() {
+            winterHistoryTbody.innerHTML = '';
+            winterConfig.forEach((item, idx) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><span style="color:var(--text-white);">${item.start}</span></td>
+                    <td><span style="color:var(--text-white);">${item.end}</span></td>
+                    <td style="text-align:right;"><button type="button" class="btn-mini-del" data-idx="${idx}">×</button></td>
+                `;
+                tr.querySelector('.btn-mini-del').addEventListener('click', () => {
+                    winterConfig.splice(idx, 1);
+                    saveStorage();
+                    renderWinterHistoryTable();
+                    refreshUI();
+                });
+                winterHistoryTbody.appendChild(tr);
+            });
+        }
+
         function buildExcelSelectors() {
             const currentYear = systemToday.getFullYear();
             let startYear = currentYear - 3 < 2026 ? 2026 : currentYear - 3;
@@ -1166,7 +1224,6 @@
             selectedDateStr = dateStr;
             selectedDayOfWeek = dayOfWeek;
             
-            // 날짜 정보에서 클릭한 실제 월(Month)을 추출하여 적용 (버그 픽스)
             const dateParts = dateStr.split('-');
             const clickedMonth = parseInt(dateParts[1], 10);
             
@@ -1226,7 +1283,6 @@
             document.getElementById('move-off-desc').textContent = `${currentDay}일의 ${moveType} 스케줄을 재배치할 날짜를 선택하세요.`;
             document.getElementById('btn-remove-off-item').textContent = `${moveType} 삭제`;
 
-            // 요건 수정 반영: 달력 다른달 선택 기능 (Select -> input[type=date] 변경)
             const input = document.getElementById('move-off-date-select');
             input.value = fromKey;
             
@@ -1237,7 +1293,7 @@
             let parts = startDateStr.split('-');
             let y = parseInt(parts[0]), m = parseInt(parts[1]) - 1, d = parseInt(parts[2]);
             let bestStr = null;
-            for (let i = 42; i >= 1; i--) { // 요건 수정 반영: 28일(4주) -> 42일(6주) 로직 적용
+            for (let i = 42; i >= 1; i--) { 
                 let temp = new Date(y, m, d + i);
                 let ty = temp.getFullYear(), tm = temp.getMonth(), td = temp.getDate();
                 let tDay = temp.getDay();
@@ -1423,7 +1479,7 @@
                 attendanceData[dateStr] = {
                     workType: fallbackType, startTime: defaults.start, endTime: defaults.end,
                     isSukjik: false, isIljik: false, overtimeMins: 0, breakfast: 0, lunch: 0, isCustomTimeModified: false, memo: "",
-                    manualOvertimeMins: 0, daehyuTargetDate: ""
+                    manualOvertimeMins: 0, daehyuTargetDate: "", winterApplied: false
                 };
             }
         }
@@ -1433,6 +1489,7 @@
             if (item) {
                 let res = parseDailySheet(dateStr, item.workType, item.startTime, item.endTime);
                 item.overtimeMins = res.overtimeMins; item.breakfast = res.breakfast; item.lunch = res.lunch;
+                item.winterApplied = res.winterApplied;
             }
             saveStorage();
             refreshUI();
@@ -1494,6 +1551,25 @@
                 document.getElementById('modal-move-off').classList.remove('open');
             });
 
+            // 동절기 설정 추가 기능
+            document.getElementById('btn-add-winter').addEventListener('click', () => {
+                let start = document.getElementById('new-winter-start').value;
+                let end = document.getElementById('new-winter-end').value;
+
+                if(!start || !end) { alert("시작일과 종료일을 모두 선택해주세요."); return; }
+                if(start > end) { alert("종료일이 시작일보다 빠를 수 없습니다."); return; }
+
+                winterConfig.push({ start: start, end: end });
+                winterConfig.sort((a, b) => new Date(a.start) - new Date(b.start));
+                saveStorage();
+                renderWinterHistoryTable();
+                refreshUI();
+
+                document.getElementById('new-winter-start').value = '';
+                document.getElementById('new-winter-end').value = '';
+                alert("동절기 조식 제외 설정이 추가되었습니다.");
+            });
+
             document.getElementById('btn-add-history').addEventListener('click', () => {
                 let dStr = document.getElementById('new-hist-date').value;
                 let gr = document.getElementById('new-hist-grade').value;
@@ -1551,7 +1627,7 @@
             document.getElementById('id-btn-txt-export').addEventListener('click', () => {
                 const now = new Date();
                 const textFileName = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}.txt`;
-                const storageObj = { attendanceData, globalConfig, holidayConfig, gradeHistory, currentTheme };
+                const storageObj = { attendanceData, globalConfig, holidayConfig, gradeHistory, winterConfig, currentTheme };
                 const blob = new Blob([JSON.stringify(storageObj, null, 2)], { type: 'text/plain;charset=utf-8;' });
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(blob);
@@ -1574,6 +1650,7 @@
                             if (parsedObj.globalConfig) globalConfig = parsedObj.globalConfig;
                             if (parsedObj.holidayConfig) holidayConfig = parsedObj.holidayConfig;
                             if (parsedObj.gradeHistory) gradeHistory = parsedObj.gradeHistory;
+                            if (parsedObj.winterConfig) winterConfig = parsedObj.winterConfig;
                             if (parsedObj.currentTheme) currentTheme = parsedObj.currentTheme;
 
                             saveStorage();
@@ -1586,6 +1663,9 @@
 
                             gradeHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
                             renderGradeHistoryTable();
+                            winterConfig.sort((a, b) => new Date(a.start) - new Date(b.start));
+                            renderWinterHistoryTable();
+                            
                             refreshUI();
                             alert("데이터 복구가 성공적으로 완료되었습니다.");
                         }
@@ -1629,7 +1709,6 @@
                     let dayOfWeek = curr.getDay();
                     let isOldRule = (curr.getFullYear() === 2026 && curr.getMonth() < 5);
 
-                    // 1. 데이터가 아예 없을 때 새로 생성하는 로직
                     if (isPastOrToday && !attendanceData[dStr]) {
                         let isHoli = isLegalHoliday(curr.getFullYear(), curr.getMonth(), curr.getDate());
                         let fallbackType = getBaseWorkType(curr.getFullYear(), curr.getMonth(), curr.getDate(), dayOfWeek, isHoli);
@@ -1652,17 +1731,15 @@
                         let res = parseDailySheet(dStr, fallbackType, st, et);
                         attendanceData[dStr] = {
                             workType: fallbackType, startTime: st, endTime: et,
-                            isSukjik: false, isIljik: false, overtimeMins: res.overtimeMins, breakfast: res.breakfast, lunch: res.lunch, isCustomTimeModified: false, memo: "", manualOvertimeMins: 0, daehyuTargetDate: ""
+                            isSukjik: false, isIljik: false, overtimeMins: res.overtimeMins, breakfast: res.breakfast, lunch: res.lunch, isCustomTimeModified: false, memo: "", manualOvertimeMins: 0, daehyuTargetDate: "", winterApplied: res.winterApplied
                         };
                     } 
                     
-                    // 2. 이미 데이터가 존재하고, 사용자가 수동으로 시간을 수정하지 않은(기본값인) 경우 일괄 업데이트
                     if (attendanceData[dStr] && !attendanceData[dStr].isCustomTimeModified) {
                         let saved = attendanceData[dStr];
                         let type = saved.workType;
                         
                         if (isOldRule) {
-                            // 26년 1~5월 기간 강제 일괄 적용
                             if (type === '평일') { saved.startTime = '05:00'; saved.endTime = '16:00'; }
                             else if (type === '오전') { saved.startTime = '11:00'; saved.endTime = '16:00'; }
                             else if (type === '오후') { saved.startTime = '05:00'; saved.endTime = '11:00'; }
@@ -1676,6 +1753,7 @@
                         }
                         let res = parseDailySheet(dStr, saved.workType, saved.startTime, saved.endTime);
                         saved.overtimeMins = res.overtimeMins; saved.breakfast = res.breakfast; saved.lunch = res.lunch;
+                        saved.winterApplied = res.winterApplied;
                     }
                     curr.setDate(curr.getDate() + 1);
                 }
@@ -1721,6 +1799,7 @@
                     overtimeMins: res.overtimeMins, 
                     breakfast: res.breakfast, 
                     lunch: res.lunch, 
+                    winterApplied: res.winterApplied,
                     isCustomTimeModified: isTimeChanged, 
                     memo: inputMemo,
                     manualOvertimeMins: prevManual, 
@@ -1813,7 +1892,6 @@
                     let isPast = cDate <= todayMidnight;
                     
                     let mins = 0;
-                    // 요건 반영: 지각 조퇴는 2시간, 오전 오후는 4시간, 연가는 8시간
                     if (type === '연가') mins = 8 * 60;
                     else if (type === '지각' || type === '조퇴') mins = 2 * 60;
                     else if (type === '오전' || type === '오후') mins = 4 * 60;
@@ -1836,7 +1914,6 @@
                 return getSavedLeaveForYear(2025);
             }
             
-            // 요건 반영: N년 저축일수 = N-1년 저축일수 + N-1년 잔여 - N-1년 연가보상
             let prevSaved = getSavedLeaveForYear(year - 1);
             let prevTotal = getLeaveTotalForYear(year - 1) * 8 * 60;
             let prevUsage = calculateLeaveUsage(year - 1);
@@ -1898,7 +1975,6 @@
                 let usage = calculateLeaveUsage(currentLeaveYear);
                 let remainMins = (t * 8 * 60) - usage.usedMins - usage.plannedMins;
                 
-                // 요건 반영: 연가보상은 잔여일수가 1일이상일때 신청 가능하며 신청 가능한 연가보상 일수를 초과할 수 없음
                 let maxCompDays = Math.floor(Math.max(0, remainMins) / (8 * 60));
                 if (c > maxCompDays) {
                     alert("신청 가능한 연가보상 일수를 초과했습니다.");
@@ -1914,7 +1990,6 @@
             updateLeaveModal();
         }
 
-        // 연가 관리 모달 이벤트 리스너
         document.getElementById('trigger-leave-manage').addEventListener('click', () => {
             currentLeaveYear = currentDate.getFullYear();
             if (currentLeaveYear < 2025) currentLeaveYear = 2025;
@@ -1962,6 +2037,7 @@
             document.getElementById('global-holiday-end').value = holidayConfig.endTime;
 
             renderGradeHistoryTable();
+            renderWinterHistoryTable();
             backgroundLoadHolidays(currentDate.getFullYear());
         });
 
