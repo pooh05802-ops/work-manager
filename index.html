@@ -722,19 +722,6 @@
             const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
             if (attendanceData[dateStr] && attendanceData[dateStr].workType) return attendanceData[dateStr].workType;
             
-            const prevDate = new Date(year, month, day - 1);
-            const prevStr = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}-${String(prevDate.getDate()).padStart(2, '0')}`;
-            
-            if (attendanceData[prevStr] && attendanceData[prevStr].isSukjik) {
-                if (prevDate.getDay() >= 0 && prevDate.getDay() <= 4) {
-                    if (!isHoli && dayOfWeek !== 6 && dayOfWeek !== 0) {
-                        const nextDate = new Date(year, month, day + 1);
-                        if (!isLegalHoliday(nextDate.getFullYear(), nextDate.getMonth(), nextDate.getDate())) {
-                            return '대휴';
-                        }
-                    }
-                }
-            }
             return getStrictBaseWorkType(year, month, day, dayOfWeek, isHoli);
         }
 
@@ -769,7 +756,7 @@
             return activeRate;
         }
 
-        function parseDailySheet(dateStr, workType, startVal, endVal) {
+        function parseDailySheet(dateStr, workType, startVal, endVal, manualMins = 0) {
             let isOldRule = false;
             if (dateStr) {
                 const parts = dateStr.split('-');
@@ -814,6 +801,22 @@
             let overtimeMins = 0; let breakfast = 0; let lunch = 0;
             if (!startVal || !endVal || startVal === "" || endVal === "") {
                 if (winterApplied) breakfast = 0;
+                
+                if (lunch === 0 && manualMins > 0) {
+                    let isHol = false;
+                    if (dateStr) {
+                        const parts = dateStr.split('-');
+                        let tDate = new Date(parts[0], parts[1]-1, parts[2]);
+                        let dW = tDate.getDay();
+                        isHol = isLegalHoliday(tDate.getFullYear(), tDate.getMonth(), tDate.getDate()) || dW === 0 || dW === 6 || workType === '휴일근무';
+                    }
+                    if (!isHol && manualMins >= 60) {
+                        lunch = 1;
+                    } else if (isHol && manualMins >= 120) {
+                        lunch = 1;
+                    }
+                }
+                
                 return { overtimeMins, breakfast, lunch, winterApplied };
             }
 
@@ -871,6 +874,22 @@
 
             if (winterApplied) {
                 breakfast = 0; // 동절기 적용시 조식 최종 무효화
+            }
+
+            // [추가] 수기초과를 통한 급량비(lunch) 생성 로직
+            if (lunch === 0 && manualMins > 0) {
+                let isHol = false;
+                if (dateStr) {
+                    const parts = dateStr.split('-');
+                    let tDate = new Date(parts[0], parts[1]-1, parts[2]);
+                    let dW = tDate.getDay();
+                    isHol = isLegalHoliday(tDate.getFullYear(), tDate.getMonth(), tDate.getDate()) || dW === 0 || dW === 6 || workType === '휴일근무';
+                }
+                if (!isHol && manualMins >= 60) {
+                    lunch = 1;
+                } else if (isHol && manualMins >= 120) {
+                    lunch = 1;
+                }
             }
 
             return { overtimeMins, breakfast, lunch, winterApplied };
@@ -968,6 +987,11 @@
                 let isIl = saved ? saved.isIljik : false;
                 let memoText = saved && saved.memo ? saved.memo : "";
                 let daehyuTarget = saved && saved.daehyuTargetDate ? saved.daehyuTargetDate : "";
+                let manualMins = saved && saved.manualOvertimeMins ? saved.manualOvertimeMins : 0;
+
+                if (dayOfWeek === 5 && isSuk) {
+                    manualMins = 180;
+                }
 
                 if (cellDate >= todayMidnight && saved && saved.isCustomTimeModified) {
                     dayCell.classList.add('future-time-modified');
@@ -986,41 +1010,26 @@
                 else if (['휴무', '연가', '대휴', '특가', '공가'].includes(activeType)) classDecorator = "bg-leave";
                 else if (['조퇴', '지각', '오전', '오후'].includes(activeType)) classDecorator = "bg-etc";
 
-                let isFixed = false;
-                if (activeType === '대휴') {
-                    let prevDate = new Date(cellYear, cellMonth, day - 1);
-                    let pStr = `${prevDate.getFullYear()}-${String(prevDate.getMonth()+1).padStart(2,'0')}-${String(prevDate.getDate()).padStart(2,'0')}`;
-                    if (attendanceData[pStr] && attendanceData[pStr].isSukjik && dayOfWeek !== 0 && dayOfWeek !== 6 && !isHoli) {
-                        isFixed = true;
-                    }
-                }
-
                 let displayTag = "";
                 if (activeType !== '평일') {
                     if (activeType === '대휴' && daehyuTarget) {
                         const parts = daehyuTarget.split('-');
                         if(parts.length === 3) {
-                            displayTag = `<span class="mini-type-tag ${classDecorator}" data-move-from="${dateStr}" data-move-type="${activeType}" style="font-size:0.55rem; ${isFixed ? '' : 'cursor:pointer;'}">${activeType} <span style="font-size:0.43rem; font-weight:normal; opacity:0.9; letter-spacing:-0.5px;">${Number(parts[1])}/${Number(parts[2])}</span></span>`;
+                            displayTag = `<span class="mini-type-tag ${classDecorator}" data-move-from="${dateStr}" data-move-type="${activeType}" style="font-size:0.55rem; cursor:pointer;">${activeType} <span style="font-size:0.43rem; font-weight:normal; opacity:0.9; letter-spacing:-0.5px;">${Number(parts[1])}/${Number(parts[2])}</span></span>`;
                         } else {
-                            displayTag = `<span class="mini-type-tag ${classDecorator}" data-move-from="${dateStr}" data-move-type="${activeType}" style="${isFixed ? '' : 'cursor:pointer;'}">${activeType}</span>`;
+                            displayTag = `<span class="mini-type-tag ${classDecorator}" data-move-from="${dateStr}" data-move-type="${activeType}" style="cursor:pointer;">${activeType}</span>`;
                         }
                     } else if (activeType === '휴무' || activeType === '휴일근무') {
                         displayTag = `<span class="mini-type-tag ${classDecorator}">${activeType}</span>`;
                     } else {
-                        displayTag = `<span class="mini-type-tag ${classDecorator}" data-move-from="${dateStr}" data-move-type="${activeType}" style="${isFixed ? '' : 'cursor:pointer;'}">${activeType}</span>`;
+                        displayTag = `<span class="mini-type-tag ${classDecorator}" data-move-from="${dateStr}" data-move-type="${activeType}" style="cursor:pointer;">${activeType}</span>`;
                     }
                 } else {
                     displayTag = '<span class="mini-type-tag" style="visibility:hidden;">평일</span>';
                 }
 
-                let metrics = parseDailySheet(dateStr, activeType, activeStart, activeEnd);
-                let manualMins = saved && saved.manualOvertimeMins ? saved.manualOvertimeMins : 0;
+                let metrics = parseDailySheet(dateStr, activeType, activeStart, activeEnd, manualMins);
                 
-                if (dayOfWeek === 5 && isSuk) {
-                    manualMins = 180;
-                    metrics.lunch = 1;
-                }
-
                 let totalMins = Math.min(metrics.overtimeMins + manualMins, 240); 
                 let timeText = totalMins > 0 ? `${Math.floor(totalMins/60)}H ${String(totalMins%60).padStart(2,'0')}M` : "";
                 
@@ -1045,12 +1054,10 @@
 
                 const moveTags = dayCell.querySelectorAll('[data-move-from]');
                 moveTags.forEach(tag => {
-                    if (!isFixed || tag.getAttribute('data-move-type') !== '대휴') {
-                        tag.addEventListener('click', (e) => {
-                            e.stopPropagation();
-                            openDaehyuMovePopup(dateStr, tag.getAttribute('data-move-type'));
-                        });
-                    }
+                    tag.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        openDaehyuMovePopup(dateStr, tag.getAttribute('data-move-type'));
+                    });
                 });
 
                 dayCell.addEventListener('click', () => openTimeModal(dateStr, day, dayOfWeek, isHoli));
@@ -1081,6 +1088,11 @@
                 let currentType = getBaseWorkType(year, monthIdx, d, dayOfWeek, isHoli);
                 let saved = attendanceData[dStr];
                 let isSuk = saved ? saved.isSukjik : false;
+                let manualMins = saved && saved.manualOvertimeMins ? saved.manualOvertimeMins : 0;
+                
+                if (dayOfWeek === 5 && isSuk) {
+                    manualMins = 180;
+                }
                 
                 let startVal = saved ? saved.startTime : "";
                 let endVal = saved ? saved.endTime : "";
@@ -1090,14 +1102,8 @@
                     startVal = defaults.start; endVal = defaults.end;
                 }
 
-                let metrics = parseDailySheet(dStr, currentType, startVal, endVal);
-                let manualMins = saved && saved.manualOvertimeMins ? saved.manualOvertimeMins : 0;
+                let metrics = parseDailySheet(dStr, currentType, startVal, endVal, manualMins);
                 
-                if (dayOfWeek === 5 && isSuk) {
-                    manualMins = 180;
-                    metrics.lunch = 1;
-                }
-
                 let dayTotalMins = Math.min(metrics.overtimeMins + manualMins, 240); 
                 let dayRate = getRateForDate(dStr); 
 
@@ -1259,15 +1265,14 @@
         }
 
         function updateModalLivePreview() {
-            let res = parseDailySheet(selectedDateStr, modalWorkTypeSelect.value, startTimeInput.value, endTimeInput.value);
             let saved = attendanceData[selectedDateStr];
             let manualMins = saved && saved.manualOvertimeMins ? saved.manualOvertimeMins : 0;
-            
             if (selectedDayOfWeek === 5 && saved && saved.isSukjik) {
                 manualMins = 180;
-                res.lunch = 1;
             }
 
+            let res = parseDailySheet(selectedDateStr, modalWorkTypeSelect.value, startTimeInput.value, endTimeInput.value, manualMins);
+            
             let totalMins = Math.min(res.overtimeMins + manualMins, 240); 
             let timeText = totalMins > 0 ? `${Math.floor(totalMins/60)}H ${String(totalMins%60).padStart(2,'0')}M` : "0H 00M";
             
@@ -1305,10 +1310,6 @@
                 let type = saved ? saved.workType : '평일';
                 
                 if (type === '평일' || type === '') {
-                    let ptDate = new Date(ty, tm, td - 1);
-                    let ptStr = `${ptDate.getFullYear()}-${String(ptDate.getMonth()+1).padStart(2,'0')}-${String(ptDate.getDate()).padStart(2,'0')}`;
-                    if (attendanceData[ptStr] && attendanceData[ptStr].isSukjik) continue; 
-
                     bestStr = tStr;
                     break;
                 }
@@ -1424,27 +1425,13 @@
                     }
                     
                     if (e.target.checked) {
-                        const nextDate = new Date(year, monthIdx, d + 1);
-                        const nd = nextDate.getDate(), nm = nextDate.getMonth(), ny = nextDate.getFullYear();
-                        const nDay = nextDate.getDay();
-                        const nHoli = isLegalHoliday(ny, nm, nd);
-                        const nStr = `${ny}-${String(nm+1).padStart(2,'0')}-${String(nd).padStart(2,'0')}`;
-
-                        if (nDay > 0 && nDay < 6 && !nHoli) {
-                            initDayContainer(nStr, '대휴');
-                            attendanceData[nStr].workType = '대휴';
-                            attendanceData[nStr].daehyuTargetDate = dStr;
-                            attendanceData[nStr].startTime = ""; attendanceData[nStr].endTime = "";
-                            saveDataAndRefresh(nStr);
-                        } else {
-                            let targetStr = findLatestAvailableWeekday(dStr);
-                            if (targetStr) {
-                                initDayContainer(targetStr, '대휴');
-                                attendanceData[targetStr].workType = '대휴';
-                                attendanceData[targetStr].daehyuTargetDate = dStr;
-                                attendanceData[targetStr].startTime = ""; attendanceData[targetStr].endTime = "";
-                                saveDataAndRefresh(targetStr);
-                            }
+                        let targetStr = findLatestAvailableWeekday(dStr);
+                        if (targetStr) {
+                            initDayContainer(targetStr, '대휴');
+                            attendanceData[targetStr].workType = '대휴';
+                            attendanceData[targetStr].daehyuTargetDate = dStr;
+                            attendanceData[targetStr].startTime = ""; attendanceData[targetStr].endTime = "";
+                            saveDataAndRefresh(targetStr);
                         }
                     }
                     saveDataAndRefresh(dStr); 
@@ -1487,7 +1474,13 @@
         function saveDataAndRefresh(dateStr) {
             let item = attendanceData[dateStr];
             if (item) {
-                let res = parseDailySheet(dateStr, item.workType, item.startTime, item.endTime);
+                let manualMins = item.manualOvertimeMins || 0;
+                const parts = dateStr.split('-');
+                let dayOfWeek = new Date(parts[0], parts[1]-1, parts[2]).getDay();
+                if (dayOfWeek === 5 && item.isSukjik) {
+                    manualMins = 180;
+                }
+                let res = parseDailySheet(dateStr, item.workType, item.startTime, item.endTime, manualMins);
                 item.overtimeMins = res.overtimeMins; item.breakfast = res.breakfast; item.lunch = res.lunch;
                 item.winterApplied = res.winterApplied;
             }
@@ -1728,7 +1721,7 @@
                             else if (['조퇴','지각','오전','오후'].includes(fallbackType)) { st = REGULAR_HOURS[fallbackType].start; et = REGULAR_HOURS[fallbackType].end; }
                         }
                         
-                        let res = parseDailySheet(dStr, fallbackType, st, et);
+                        let res = parseDailySheet(dStr, fallbackType, st, et, 0);
                         attendanceData[dStr] = {
                             workType: fallbackType, startTime: st, endTime: et,
                             isSukjik: false, isIljik: false, overtimeMins: res.overtimeMins, breakfast: res.breakfast, lunch: res.lunch, isCustomTimeModified: false, memo: "", manualOvertimeMins: 0, daehyuTargetDate: "", winterApplied: res.winterApplied
@@ -1751,7 +1744,11 @@
                             }
                             else if (type === '휴일근무') { saved.startTime = newHoliday.startTime; saved.endTime = newHoliday.endTime; }
                         }
-                        let res = parseDailySheet(dStr, saved.workType, saved.startTime, saved.endTime);
+                        let manualMins = saved.manualOvertimeMins || 0;
+                        if (dayOfWeek === 5 && saved.isSukjik) {
+                            manualMins = 180;
+                        }
+                        let res = parseDailySheet(dStr, saved.workType, saved.startTime, saved.endTime, manualMins);
                         saved.overtimeMins = res.overtimeMins; saved.breakfast = res.breakfast; saved.lunch = res.lunch;
                         saved.winterApplied = res.winterApplied;
                     }
@@ -1775,7 +1772,6 @@
             document.getElementById('btn-save-time-modal').addEventListener('click', () => {
                 initDayContainer(selectedDateStr, modalWorkTypeSelect.value);
 
-                let res = parseDailySheet(selectedDateStr, modalWorkTypeSelect.value, startTimeInput.value, endTimeInput.value);
                 let prevSuk = attendanceData[selectedDateStr].isSukjik;
                 let prevIl = attendanceData[selectedDateStr].isIljik;
                 let prevManual = attendanceData[selectedDateStr].manualOvertimeMins;
@@ -1785,6 +1781,10 @@
                 let pParts = selectedDateStr.split('-').map(Number);
                 let pDate = new Date(pParts[0], pParts[1]-1, pParts[2]);
                 let dayOfWeek = pDate.getDay();
+                let manualMins = prevManual || 0;
+                if (dayOfWeek === 5 && prevSuk) { manualMins = 180; }
+
+                let res = parseDailySheet(selectedDateStr, modalWorkTypeSelect.value, startTimeInput.value, endTimeInput.value, manualMins);
                 
                 let defaults = getDefaultTimeForDay(modalWorkTypeSelect.value, dayOfWeek, selectedDateStr);
                 
