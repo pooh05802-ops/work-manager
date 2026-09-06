@@ -313,6 +313,11 @@
                 </div>
 
                 <div class="leave-row">
+                    <span class="leave-row-title">병가</span>
+                    <span id="leave-sick-text" class="leave-row-value">0일</span>
+                </div>
+
+                <div class="leave-row">
                     <span class="leave-row-title">예정</span>
                     <span id="leave-planned-text" class="leave-row-value">0일 0시간</span>
                 </div>
@@ -428,6 +433,7 @@
                         <option value="연가">연가</option>
                         <option value="특가">특가</option>
                         <option value="공가">공가</option>
+                        <option value="병가">병가</option>
                         <option value="조퇴">조퇴</option>
                         <option value="지각">지각</option>
                         <option value="오후">오후</option>
@@ -452,10 +458,10 @@
                 </div>
 
                 <div class="preview-box">
-                    <p class="preview-title">일일 실적 미리보기</p>
+                    
                     <div class="preview-grid">
                         <div>
-                            <span class="preview-label">초과 인정 (수기 포함)</span>
+                            <span class="preview-label">초과 인정</span>
                             <span class="preview-value" style="color:var(--accent-color);" id="preview-overtime">0H 00M</span>
                         </div>
                         <div>
@@ -619,7 +625,7 @@
 
         const REGULAR_HOURS = {
             '평일': { start: '06:00', end: '15:00' },
-            '조퇴': { start: '06:00', end: '12:00' },
+            '조퇴': { start: '06:00', end: '13:00' },
             '지각': { start: '08:00', end: '15:00' },
             '오후': { start: '06:00', end: '10:00' },
             '오전': { start: '10:00', end: '15:00' },
@@ -1002,12 +1008,12 @@
                 }
 
                 if (activeType === '휴일근무') dayCell.classList.add('cell-working-holiday');
-                else if (['휴무', '연가', '대휴', '특가', '공가'].includes(activeType)) dayCell.classList.add('cell-resting-holiday');
+                else if (['휴무', '연가', '대휴', '특가', '공가', '병가'].includes(activeType)) dayCell.classList.add('cell-resting-holiday');
                 else if (['조퇴', '지각', '오전', '오후'].includes(activeType)) dayCell.classList.add('cell-etc-holiday');
 
                 let classDecorator = "";
                 if (activeType === '휴일근무') classDecorator = "bg-holiday-work";
-                else if (['휴무', '연가', '대휴', '특가', '공가'].includes(activeType)) classDecorator = "bg-leave";
+                else if (['휴무', '연가', '대휴', '특가', '공가', '병가'].includes(activeType)) classDecorator = "bg-leave";
                 else if (['조퇴', '지각', '오전', '오후'].includes(activeType)) classDecorator = "bg-etc";
 
                 let displayTag = "";
@@ -1124,7 +1130,7 @@
                 }
                 if (currentType === '평일' || ['조퇴', '지각', '오전', '오후'].includes(currentType)) countNormal++;
                 else if (currentType === '휴일근무') countHolidayWork++;
-                else if (['휴무', '연가', '대휴', '특가', '공가'].includes(currentType)) countHuumu++;
+                else if (['휴무', '연가', '대휴', '특가', '공가', '병가'].includes(currentType)) countHuumu++;
             }
 
             let maxOvertimeMins = 50 * 60;
@@ -1356,6 +1362,7 @@
                                 <option value="연가" ${activeType==='연가'?'selected':''}>연가</option>
                                 <option value="특가" ${activeType==='특가'?'selected':''}>특가</option>
                                 <option value="공가" ${activeType==='공가'?'selected':''}>공가</option>
+                                <option value="병가" ${activeType==='병가'?'selected':''}>병가</option>
                                 <option value="조퇴" ${activeType==='조퇴'?'selected':''}>조퇴</option>
                                 <option value="지각" ${activeType==='지각'?'selected':''}>지각</option>
                                 <option value="오후" ${activeType==='오후'?'selected':''}>오후</option>
@@ -1944,13 +1951,26 @@
             } else {
                 document.getElementById('leave-content-main').style.display = 'flex';
                 document.getElementById('leave-content-2025').style.display = 'none';
-                
+                            
                 let totalDays = getLeaveTotalForYear(currentLeaveYear);
                 document.getElementById('leave-total-input').value = totalDays;
-                
+
                 let usage = calculateLeaveUsage(currentLeaveYear);
                 document.getElementById('leave-used-text').textContent = formatLeaveTime(usage.usedMins);
                 document.getElementById('leave-planned-text').textContent = formatLeaveTime(usage.plannedMins);
+
+                // 병가 카운트 (해당 연도 단독 계산)
+                let sickCount = 0;
+                const startStr = `${currentLeaveYear}-01-01`;
+                const endStr = `${currentLeaveYear}-12-31`;
+                for (let dateStr in attendanceData) {
+                    if (dateStr >= startStr && dateStr <= endStr) {
+                        if (attendanceData[dateStr].workType === '병가') {
+                            sickCount++;
+                        }
+                    }
+                }
+                document.getElementById('leave-sick-text').textContent = `${sickCount}일`;
                 
                 let remainMins = (totalDays * 8 * 60) - usage.usedMins - usage.plannedMins;
                 document.getElementById('leave-remain-text').textContent = formatLeaveTime(remainMins);
