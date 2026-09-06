@@ -2198,6 +2198,7 @@
             return num.toLocaleString();
         }
 
+
         function openMealModal() {
             const injector = document.getElementById('meal-rows-injector');
             injector.innerHTML = '';
@@ -2210,7 +2211,6 @@
 
             document.getElementById('meal-month-label').textContent = `${year}년 ${monthIdx + 1}월`;
 
-            
             for (let d = 1; d <= totalDays; d++) {
                 const dStr = `${prefix}-${String(d).padStart(2, '0')}`;
                 const cellDate = new Date(year, monthIdx, d);
@@ -2234,19 +2234,11 @@
                         <input type="checkbox" class="meal-checkbox chk-copy" ${data.checked ? 'checked' : ''} title="체크 시 어제자 식대 자동입력">
                     </div>
                     
-                    <div class="meal-controls" style="display:flex; gap:6px;"> <div class="meal-input-box expense-box" style="border-color: ${data.expense > 0 ? '#dc2626' : 'var(--border-color)'};">
+                    <div class="meal-controls" style="display:flex; gap:6px;"> 
+                        <div class="meal-input-box expense-box" style="border-color: ${data.expense > 0 ? '#dc2626' : 'var(--border-color)'};">
                             <span style="color:#dc2626; font-size:0.75rem; font-weight:bold; margin-right:2px;">-</span>
                             <input type="text" inputmode="numeric" class="meal-input input-expense" value="${formatComma(data.expense)}">
                         </div>
-                        <div class="meal-input-box deposit-box" style="border-color: ${data.deposit > 0 ? '#0284c7' : 'var(--border-color)'};">
-                            <span style="color:#0284c7; font-size:0.75rem; font-weight:bold; margin-right:2px;">+</span>
-                            <input type="text" inputmode="numeric" class="meal-input input-deposit" value="${formatComma(data.deposit)}">
-                        </div>
-                    </div>
-                `;
-
-                   
-                    <div class="meal-controls" style="margin-left: 16px;">
                         <div class="meal-input-box deposit-box" style="border-color: ${data.deposit > 0 ? '#0284c7' : 'var(--border-color)'};">
                             <span style="color:#0284c7; font-size:0.75rem; font-weight:bold; margin-right:2px;">+</span>
                             <input type="text" inputmode="numeric" class="meal-input input-deposit" value="${formatComma(data.deposit)}">
@@ -2296,6 +2288,7 @@
             updateMealSummary();
             document.getElementById('meal-modal').classList.add('open');
         }
+
 
         document.getElementById('trigger-meal-manage').addEventListener('click', openMealModal);
         document.getElementById('close-meal-modal').addEventListener('click', () => {
