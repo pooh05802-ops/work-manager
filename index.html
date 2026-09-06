@@ -311,12 +311,7 @@
                     <span class="leave-row-title">사용</span>
                     <span id="leave-used-text" class="leave-row-value">0일 0시간</span>
                 </div>
-                
-                <div class="leave-row">
-                    <span class="leave-row-title">특가</span>
-                    <span id="leave-sick-text" class="leave-row-value">0일</span>
-                </div>
-                
+
                 <div class="leave-row">
                     <span class="leave-row-title">병가</span>
                     <span id="leave-sick-text" class="leave-row-value">0일</span>
@@ -1964,19 +1959,6 @@
                 document.getElementById('leave-used-text').textContent = formatLeaveTime(usage.usedMins);
                 document.getElementById('leave-planned-text').textContent = formatLeaveTime(usage.plannedMins);
 
-                // 특가 카운트 (해당 연도 단독 계산)
-                let sickCount = 0;
-                const startStr = `${currentLeaveYear}-01-01`;
-                const endStr = `${currentLeaveYear}-12-31`;
-                for (let dateStr in attendanceData) {
-                    if (dateStr >= startStr && dateStr <= endStr) {
-                        if (attendanceData[dateStr].workType === '특가') {
-                            sickCount++;
-                        }
-                    }
-                }
-                document.getElementById('leave-sick-text').textContent = `${sickCount}일`;
-                
                 // 병가 카운트 (해당 연도 단독 계산)
                 let sickCount = 0;
                 const startStr = `${currentLeaveYear}-01-01`;
