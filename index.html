@@ -245,6 +245,7 @@
             border-radius: 4px; border: 1px solid var(--border-color);
             background: var(--app-bg); color: var(--text-muted);
         }
+
         /* --- 식당관리 모달 전용 스타일 --- */
         .meal-row {
             display: flex; justify-content: space-between; align-items: center; 
@@ -252,26 +253,44 @@
             border-bottom: 1px solid var(--border-color);
             background: var(--card-bg);
         }
-        .meal-left-group { display: flex; align-items: center; }
-        .meal-date { font-size: 0.75rem; font-weight: 600; width: 50px; color: var(--text-main); }
-        .meal-checkbox {
-            margin-left: 20px; margin-right: 10px; transform: scale(1.1);
-            cursor: pointer; accent-color: var(--accent-color);
+        .meal-left-group { 
+        display: flex; align-items: center; 
+        }  
+        .meal-checkbox { display: none; }
+        /* 날짜 토글 버튼 스타일 */
+        .meal-date-btn {
+             display: inline-flex; justify-content: center; align-items: center;
+             width: 38px; height: 38px; border-radius: 8px;
+             font-size: 0.85rem; font-weight: 800; cursor: pointer;
+             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+             user-select: none; margin-right: 10px;
         }
+        .meal-date-btn.is-checked {
+             background-color: var(--accent-color); color: #000;
+             box-shadow: 0 0 10px rgba(0, 240, 255, 0.4); border: 2px solid var(--accent-color);
+        }
+             [data-theme="light"] .meal-date-btn.is-checked { color: #fff; }
+        .meal-date-btn.is-unchecked {
+             background-color: transparent; color: var(--text-muted);
+             border: 2px dashed var(--border-color); opacity: 0.6;
+        }
+        .meal-date-btn:active { transform: scale(0.85); }
+        /* 입력창 간격 조정 */
         .meal-controls { 
-            display: flex; align-items: center; gap: 30px; 
+             display: flex; align-items: center; 
+             gap: 6px; /* 15px -> 6px 축소 */
+             flex: 1; justify-content: flex-end; 
         }
         .meal-input-box {
-            display: flex; align-items: center; 
-            background: var(--app-bg); border: 1px solid var(--border-color); 
-            border-radius: 4px; padding: 3px 6px; width: 90px;
-            cursor: text; transition: border-color 0.2s;
+             display: flex; align-items: center; background: var(--app-bg); 
+             border: 1px solid var(--border-color); border-radius: 4px; 
+             padding: 3px 6px; width: 80px; cursor: text; transition: border-color 0.2s;
         }
         .meal-input-box:focus-within { border-color: var(--accent-color) !important; }
         .meal-input {
-            width: 100%; background: transparent; border: none; 
-            color: var(--text-main); font-size: 0.85rem; text-align: right; 
-            outline: none; padding-right: 2px;
+             width: 100%; background: transparent; border: none; 
+             color: var(--text-main); font-size: 0.85rem; text-align: right; 
+             outline: none; padding-right: 2px; 
         }
     </style>
 </head>
@@ -2213,7 +2232,7 @@
 
             document.getElementById('meal-month-label').textContent = `${year}년 ${monthIdx + 1}월`;
 
-            for (let d = 1; d <= totalDays; d++) {
+         for (let d = 1; d <= totalDays; d++) {
                 const dStr = `${prefix}-${String(d).padStart(2, '0')}`;
                 const cellDate = new Date(year, monthIdx, d);
                 const dayOfWeek = cellDate.getDay();
@@ -2230,10 +2249,13 @@
                 const row = document.createElement('div');
                 row.className = 'meal-row';
                 
+                // 💡 [변경됨] 못생긴 체크박스를 지우고, 예쁜 날짜 동그라미 버튼(meal-date-btn)으로 교체!
                 row.innerHTML = `
                     <div class="meal-left-group">
-                        <div class="meal-date" style="color: ${textColor};">${d}일(${weekdaysText[dayOfWeek]})</div>
-                        <input type="checkbox" class="meal-checkbox chk-copy" ${data.checked ? 'checked' : ''} title="체크 시 어제자 식대 자동입력">
+                        <div class="meal-date-btn chk-copy ${data.checked ? 'is-checked' : 'is-unchecked'}" title="클릭 시 어제자 식대 자동입력">
+                            ${d}
+                        </div>
+                        <div class="meal-date" style="color: ${textColor};">일(${weekdaysText[dayOfWeek]})</div>
                     </div>
                     
                     <div class="meal-controls" style="display:flex; gap:6px;"> 
@@ -2260,7 +2282,11 @@
                 const saveData = () => {
                     const rawExpense = parseRawNumber(inpExpense.value);
                     const rawDeposit = parseRawNumber(inpDeposit.value);
-                    mealBookData[dStr] = { checked: chkCopy.checked, expense: rawExpense, deposit: rawDeposit };
+                    
+                    // 💡 [변경됨] 체크박스가 아니라 버튼의 클래스(is-checked)를 보고 체크 여부를 저장합니다.
+                    const isBtnChecked = chkCopy.classList.contains('is-checked');
+                    mealBookData[dStr] = { checked: isBtnChecked, expense: rawExpense, deposit: rawDeposit };
+                    
                     localStorage.setItem('restaurant_meal_book_light_v2', JSON.stringify(mealBookData));
                     
                     expenseBox.style.borderColor = rawExpense > 0 ? '#dc2626' : 'var(--border-color)';
@@ -2277,20 +2303,30 @@
                 inpExpense.addEventListener('input', handleCommaInput);
                 inpDeposit.addEventListener('input', handleCommaInput);
 
-                chkCopy.addEventListener('change', (e) => {
-                    if (e.target.checked) {
+                // 💡 [변경됨] 버튼을 클릭(click)했을 때 불이 켜지고 꺼지는 애니메이션 효과와 자동입력 기능 연결
+                chkCopy.addEventListener('click', () => {
+                    const currentlyChecked = chkCopy.classList.contains('is-checked');
+                    
+                    if (!currentlyChecked) {
+                        // 체크하기 (불 켜짐)
+                        chkCopy.classList.remove('is-unchecked');
+                        chkCopy.classList.add('is-checked');
                         if (!inpExpense.value) inpExpense.value = formatComma(getLastMealPrice(dStr));
                     } else {
+                        // 체크 해제하기 (불 꺼짐)
+                        chkCopy.classList.remove('is-checked');
+                        chkCopy.classList.add('is-unchecked');
                         inpExpense.value = "";
                     }
                     saveData();
                 });
+                
                 injector.appendChild(row);
             }
             updateMealSummary();
             document.getElementById('meal-modal').classList.add('open');
         }
-
+            
 
         document.getElementById('trigger-meal-manage').addEventListener('click', openMealModal);
         document.getElementById('close-meal-modal').addEventListener('click', () => {
@@ -2305,6 +2341,24 @@
             mealCurrentDate.setMonth(mealCurrentDate.getMonth() + 1);
             openMealModal();
         });
+        // --- 식대 날짜 버튼 클릭 토글 함수 ---
+        function toggleMealStatus(element) {
+        const row = element.closest('.meal-row');
+        const expenseInput = row.querySelector('.expense-input');
+        const defaultMealPrice = 8000; // 고정 식대값 설정
+
+         // 현재 '선택됨(is-checked)' 상태라면? -> 선택 해제(0원)로 변경
+         if (element.classList.contains('is-checked')) {
+             element.classList.remove('is-checked');
+             element.classList.add('is-unchecked');
+             expenseInput.value = 0; 
+         } 
+         // 현재 '선택 안됨(is-unchecked)' 상태라면? -> 선택됨(8000원)으로 변경
+         else {element.classList.remove('is-unchecked');
+               element.classList.add('is-checked');
+               expenseInput.value = defaultMealPrice; 
+         }
+    }
     </script>
 </body>
 </html>
