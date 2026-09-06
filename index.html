@@ -245,6 +245,32 @@
             border-radius: 4px; border: 1px solid var(--border-color);
             background: var(--app-bg); color: var(--text-muted);
         }
+        /* --- 식당관리 모달 전용 스타일 --- */
+        .meal-row {
+            display: flex; justify-content: space-between; align-items: center; 
+            padding: 8px 6px; 
+            border-bottom: 1px solid var(--border-color);
+            background: var(--card-bg);
+        }
+        .meal-left-group { display: flex; align-items: center; }
+        .meal-date { font-size: 0.75rem; font-weight: 600; width: 50px; color: var(--text-main); }
+        .meal-checkbox {
+            margin-left: 10px; margin-right: 4px; transform: scale(1.1);
+            cursor: pointer; accent-color: var(--accent-color);
+        }
+        .meal-controls { display: flex; align-items: center; }
+        .meal-input-box {
+            display: flex; align-items: center; 
+            background: var(--app-bg); border: 1px solid var(--border-color); 
+            border-radius: 4px; padding: 3px 6px; width: 75px;
+            cursor: text; transition: border-color 0.2s;
+        }
+        .meal-input-box:focus-within { border-color: var(--accent-color) !important; }
+        .meal-input {
+            width: 100%; background: transparent; border: none; 
+            color: var(--text-main); font-size: 0.85rem; text-align: right; 
+            outline: none; padding-right: 2px;
+        }
     </style>
 </head>
 <body>
@@ -257,6 +283,9 @@
                 </div>
                 <div class="app-title" id="trigger-leave-manage" title="연가관리 열기" style="margin-left: 10px;">
                     &nbsp;&nbsp;<span style="font-size:0.9em; margin-right:2px;">✈️</span>
+                </div>
+                <div class="app-title" id="trigger-meal-manage" title="식당 장부 열기" style="margin-left: 10px;">
+                                <span style="font-size:0.9em; margin-right:2px;">🍱</span>
                 </div>
             </div>
             <div class="month-selector">
@@ -607,7 +636,45 @@
             </div>
         </div>
     </div>
+<!-- 식당 장부 모달 -->
+    <div class="modal-overlay" id="meal-modal">
+        <div class="modal-content" style="display:flex; flex-direction:column; max-width: 390px; height: 85vh; max-height: 620px;">
+            <header class="modal-header" style="flex-shrink:0; margin-bottom: 10px;">
+                <div style="display:flex; align-items:center; gap: 6px;">
+                    <span class="material-symbols-outlined" id="meal-prev-month" style="cursor:pointer; font-size:1.2rem; color:var(--text-muted);" title="전월">chevron_left</span>
+                    <h3 style="font-size:1.05rem; color:var(--text-main); margin:0;" id="meal-month-label"></h3>
+                    <span class="material-symbols-outlined" id="meal-next-month" style="cursor:pointer; font-size:1.2rem; color:var(--text-muted);" title="다음달">chevron_right</span>
+                </div>
+                <span class="material-symbols-outlined close-btn" id="close-meal-modal">close</span>
+            </header>
 
+            <!-- 요약 대시보드 -->
+            <div style="background:var(--card-bg); border:1px solid var(--border-color); border-radius:8px; padding:12px; margin-bottom:12px; flex-shrink:0;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:0.8rem;">
+                    <span style="color:var(--text-muted);">전월 이월금액</span>
+                    <span id="summary-carryover" style="color:var(--text-main); font-weight:bold;">0원</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:0.8rem;">
+                    <span style="color:var(--text-muted);">입금금액</span>
+                    <span id="summary-deposit" style="color:#0284c7; font-weight:bold;">+0원</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:0.8rem;">
+                    <span style="color:var(--text-muted);">식대</span>
+                    <span id="summary-expense" style="color:#dc2626; font-weight:bold;">-0원</span>
+                </div>
+                <div style="border-top:1px solid var(--border-color); padding-top:8px; display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:0.9rem; font-weight:bold; color:var(--text-main);">현재 잔액</span>
+                    <span id="summary-balance" style="font-size:1.20rem; font-weight:900; color:var(--accent-color);">0원</span>
+                </div>
+            </div>
+
+            <!-- 날짜별 리스트 -->
+            <div id="meal-rows-injector" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:4px; border: 1px solid var(--border-color); border-radius: 6px; padding: 4px;">
+                <!-- JS로 자동 생성됨 -->
+            </div>
+        </div>
+    </div>
+    
     <script>
         // ==========================================
         // 1. STATE & GLOBAL CONFIGURATION
@@ -1979,7 +2046,7 @@
                 for (let dateStr in attendanceData) {
                 if (dateStr >= startStr && dateStr <= endStr) {
         
-                if (attendanceData[dateStr].type === '대휴') {
+                if (attendanceData[dateStr].workType === '대휴') {
                     daehyuCount++;
                 }
         
@@ -2083,7 +2150,155 @@
             renderWinterHistoryTable();
             backgroundLoadHolidays(currentDate.getFullYear());
         });
+// ==========================================
+        // 식당 장부 모달 스크립트 로직
+        // ==========================================
+        let mealCurrentDate = new Date(); 
+        let mealBookData = safeLoad('restaurant_meal_book_light_v2', {});
 
+        function getLastMealPrice(targetDateStr) {
+            let dates = Object.keys(mealBookData).filter(k => mealBookData[k].expense > 0 && k < targetDateStr).sort();
+            if (dates.length > 0) return mealBookData[dates[dates.length - 1]].expense;
+            return 8000; 
+        }
+
+        function updateMealSummary() {
+            const year = mealCurrentDate.getFullYear();
+            const monthIdx = mealCurrentDate.getMonth();
+            const currentMonthPrefix = `${year}-${String(monthIdx + 1).padStart(2, '0')}`;
+
+            let carryOver = 0; let currentDeposit = 0; let currentExpense = 0;
+
+            for (let dateStr in mealBookData) {
+                let d = mealBookData[dateStr];
+                let dep = d.deposit ? parseInt(d.deposit) : 0;
+                let exp = d.expense ? parseInt(d.expense) : 0;
+
+                if (dateStr.startsWith(currentMonthPrefix)) {
+                    currentDeposit += dep; currentExpense += exp;
+                } else if (dateStr < currentMonthPrefix) {
+                    carryOver += (dep - exp);
+                }
+            }
+            
+            let currentBalance = carryOver + currentDeposit - currentExpense;
+            document.getElementById('summary-carryover').textContent = `${carryOver >= 0 ? '+' : ''}${carryOver.toLocaleString()}원`;
+            document.getElementById('summary-deposit').textContent = `+${currentDeposit.toLocaleString()}원`;
+            document.getElementById('summary-expense').textContent = `-${currentExpense.toLocaleString()}원`;
+            document.getElementById('summary-balance').textContent = `${currentBalance >= 0 ? '+' : ''}${currentBalance.toLocaleString()}원`;
+        }
+
+        function parseRawNumber(val) {
+            if (!val) return 0;
+            return parseInt(val.toString().replace(/[^0-9]/g, ''), 10) || 0;
+        }
+
+        function formatComma(num) {
+            if (!num || num === 0) return "";
+            return num.toLocaleString();
+        }
+
+        function openMealModal() {
+            const injector = document.getElementById('meal-rows-injector');
+            injector.innerHTML = '';
+            
+            const year = mealCurrentDate.getFullYear();
+            const monthIdx = mealCurrentDate.getMonth();
+            const prefix = `${year}-${String(monthIdx + 1).padStart(2, '0')}`;
+            const totalDays = new Date(year, monthIdx + 1, 0).getDate();
+            const weekdaysText = ['일', '월', '화', '수', '목', '금', '토'];
+
+            document.getElementById('meal-month-label').textContent = `${year}년 ${monthIdx + 1}월`;
+
+            for (let d = 1; d <= totalDays; d++) {
+                const dStr = `${prefix}-${String(d).padStart(2, '0')}`;
+                const cellDate = new Date(year, monthIdx, d);
+                const dayOfWeek = cellDate.getDay();
+
+                let data = mealBookData[dStr] || { checked: false, expense: 0, deposit: 0 };
+                
+                let textColor = "var(--text-main)";
+                if(dayOfWeek===0) textColor = "#dc2626";
+                else if(dayOfWeek===6) textColor = "#2563eb";
+
+                const row = document.createElement('div');
+                row.className = 'meal-row';
+                
+                row.innerHTML = `
+                    <div class="meal-left-group">
+                        <div class="meal-date" style="color: ${textColor};">${d}일(${weekdaysText[dayOfWeek]})</div>
+                        <input type="checkbox" class="meal-checkbox chk-copy" ${data.checked ? 'checked' : ''} title="체크 시 어제자 식대 자동입력">
+                        
+                        <div class="meal-input-box expense-box" style="border-color: ${data.expense > 0 ? '#dc2626' : 'var(--border-color)'};">
+                            <span style="color:#dc2626; font-size:0.75rem; font-weight:bold; margin-right:2px;">-</span>
+                            <input type="text" inputmode="numeric" class="meal-input input-expense" value="${formatComma(data.expense)}">
+                        </div>
+                    </div>
+                    
+                    <div class="meal-controls" style="margin-left: 16px;">
+                        <div class="meal-input-box deposit-box" style="border-color: ${data.deposit > 0 ? '#0284c7' : 'var(--border-color)'};">
+                            <span style="color:#0284c7; font-size:0.75rem; font-weight:bold; margin-right:2px;">+</span>
+                            <input type="text" inputmode="numeric" class="meal-input input-deposit" value="${formatComma(data.deposit)}">
+                        </div>
+                    </div>
+                `;
+
+                const chkCopy = row.querySelector('.chk-copy');
+                const inpExpense = row.querySelector('.input-expense');
+                const inpDeposit = row.querySelector('.input-deposit');
+                const expenseBox = row.querySelector('.expense-box');
+                const depositBox = row.querySelector('.deposit-box');
+
+                expenseBox.addEventListener('click', () => inpExpense.focus());
+                depositBox.addEventListener('click', () => inpDeposit.focus());
+
+                const saveData = () => {
+                    const rawExpense = parseRawNumber(inpExpense.value);
+                    const rawDeposit = parseRawNumber(inpDeposit.value);
+                    mealBookData[dStr] = { checked: chkCopy.checked, expense: rawExpense, deposit: rawDeposit };
+                    localStorage.setItem('restaurant_meal_book_light_v2', JSON.stringify(mealBookData));
+                    
+                    expenseBox.style.borderColor = rawExpense > 0 ? '#dc2626' : 'var(--border-color)';
+                    depositBox.style.borderColor = rawDeposit > 0 ? '#0284c7' : 'var(--border-color)';
+                    updateMealSummary();
+                };
+
+                const handleCommaInput = (e) => {
+                    let rawNum = parseRawNumber(e.target.value);
+                    e.target.value = rawNum === 0 ? "" : rawNum.toLocaleString();
+                    saveData();
+                };
+
+                inpExpense.addEventListener('input', handleCommaInput);
+                inpDeposit.addEventListener('input', handleCommaInput);
+
+                chkCopy.addEventListener('change', (e) => {
+                    if (e.target.checked) {
+                        if (!inpExpense.value) inpExpense.value = formatComma(getLastMealPrice(dStr));
+                    } else {
+                        inpExpense.value = "";
+                    }
+                    saveData();
+                });
+                injector.appendChild(row);
+            }
+            updateMealSummary();
+            document.getElementById('meal-modal').classList.add('open');
+        }
+
+        document.getElementById('trigger-meal-manage').addEventListener('click', openMealModal);
+        document.getElementById('close-meal-modal').addEventListener('click', () => {
+            document.getElementById('meal-modal').classList.remove('open');
+        });
+
+        document.getElementById('meal-prev-month').addEventListener('click', () => {
+            mealCurrentDate.setMonth(mealCurrentDate.getMonth() - 1);
+            openMealModal();
+        });
+        document.getElementById('meal-next-month').addEventListener('click', () => {
+            mealCurrentDate.setMonth(mealCurrentDate.getMonth() + 1);
+            openMealModal();
+        });
     </script>
 </body>
 </html>
