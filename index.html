@@ -255,14 +255,16 @@
         .meal-left-group { display: flex; align-items: center; }
         .meal-date { font-size: 0.75rem; font-weight: 600; width: 50px; color: var(--text-main); }
         .meal-checkbox {
-            margin-left: 20px; margin-right: 4px; transform: scale(1.1);
+            margin-left: 30px; margin-right: 1px; transform: scale(1.1);
             cursor: pointer; accent-color: var(--accent-color);
         }
-        .meal-controls { display: flex; align-items: center; }
+        .meal-controls { 
+            display: flex; align-items: center; gap: 12px; 
+        }
         .meal-input-box {
             display: flex; align-items: center; 
             background: var(--app-bg); border: 1px solid var(--border-color); 
-            border-radius: 4px; padding: 3px 6px; width: 75px;
+            border-radius: 4px; padding: 3px 6px; width: 90px;
             cursor: text; transition: border-color 0.2s;
         }
         .meal-input-box:focus-within { border-color: var(--accent-color) !important; }
