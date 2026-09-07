@@ -2330,7 +2330,11 @@
         }
             
 
-        document.getElementById('trigger-meal-manage').addEventListener('click', openMealModal);
+        document.getElementById('trigger-meal-manage').addEventListener('click', () => {
+            mealCurrentDate = new Date(systemToday.getFullYear(), systemToday.getMonth(), 1);
+            openMealModal();
+        });
+        
         document.getElementById('close-meal-modal').addEventListener('click', () => {
             document.getElementById('meal-modal').classList.remove('open');
         });
