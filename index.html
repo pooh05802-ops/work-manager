@@ -2381,6 +2381,38 @@
                expenseInput.value = defaultMealPrice; 
          }
     }
+
+         // --- 식당 장부 오늘 날짜로 자동 스크롤 하는 함수 ---
+         function scrollToTodayMeal() {
+         // 1. 오늘 날짜(일) 구하기
+         const today = new Date();
+         const todayDay = today.getDate();
+
+         // 2. 모달이 화면에 표시될(렌더링) 시간을 벌기 위해 아주 짧은 딜레이(100ms)를 줍니다.
+         setTimeout(() => {
+             const container = document.getElementById('meal-rows-injector');
+             if (!container) return;
+
+             // 식당 리스트의 날짜 버튼(.meal-date-btn)들을 모두 찾습니다.
+             const dateBtns = container.querySelectorAll('.meal-date-btn');
+        
+             for (let btn of dateBtns) {
+                 // 버튼의 텍스트(예: "22" 또는 "22일")에서 숫자만 추출하여 오늘 날짜와 비교
+                 if (parseInt(btn.textContent) === todayDay) {
+                     // 버튼을 감싸고 있는 해당 날짜의 전체 행(.meal-row)을 찾습니다.
+                     const targetRow = btn.closest('.meal-row');
+                
+                     if (targetRow) {
+                         // 핵심: block: 'center'를 주면 클릭한 날짜가 모달창 정가운데로 스크롤됩니다.
+                         // (예: 22일로 스크롤시 위로 19~21일, 아래로 23~26일이 자연스럽게 보입니다)
+                         targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      }
+                      break; // 오늘 날짜를 찾았으므로 반복문 종료
+                  }
+               }
+            }, 100);
+    }
+        
     </script>
 </body>
 </html>
