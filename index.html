@@ -943,30 +943,46 @@
 
             const isWeekdayType = ['평일', '조퇴', '지각', '오전', '오후'].includes(workType);
 
+
             if (isWeekdayType) {
                 const reg = REGULAR_HOURS[workType] || {start: '06:00', end: '15:00'};
                 const [regSH, regSM] = reg.start.split(':').map(Number);
                 const [regEH, regEM] = reg.end.split(':').map(Number);
-                let regStartMins = regSH * 60 + regSM;
-                let regEndMins = regEH * 60 + regEM;
+                let regStartMins = regSH * 60 + regSM; // 예: 06:00 -> 360분
+                let regEndMins = regEH * 60 + regEM;     // 예: 15:00 -> 900분
 
-                let earlyOver = 0;
-                let lateOver = 0;
+            // 1. 식대/급량비 계산 (기존 유지)
+            if (startMins <= 300) { // 05시 이전 출근
+                breakfast = 1;
+            }
+            if (endMins >= 960) {   // 16시 이후 퇴근
+                lunch = 1;
+            }  
 
-                if (startMins <= 300) {
-                    breakfast = 1;
-                    earlyOver = Math.max(0, regStartMins - effStartMins);
-                }
-                if (endMins >= 960) {
-                    lunch = 1;
-                    lateOver = Math.max(0, effEndMins - regEndMins);
-                }
+            // 2. 초과시간 및 1시간(60분) 공제 로직 (오전 우선 공제)
+            let rawEarlyMins = Math.max(0, regStartMins - effStartMins); // 순수 출근 조기 시간
+            let rawLateMins = Math.max(0, effEndMins - regEndMins);      // 순수 퇴근 지연 시간
 
-                let totalAutoOver = earlyOver + lateOver;
-                if (totalAutoOver > 60) {
-                    overtimeMins = totalAutoOver - 60; 
-                }
-            } 
+            let earlyOver = 0;
+            let lateOver = 0;
+
+            // 오전에 60분 이상 조기 출근했는지 확인 (05:00 이전 출근 여부)
+            if (rawEarlyMins >= 60) {
+            // [조건 A] 오전에 1시간 공제 완료
+            earlyOver = rawEarlyMins - 60; // 60분 차감 후 남은 시간 인정
+            lateOver = rawLateMins;        // 오후는 15시 이후 1분 단위로 전부 인정
+            } else {
+            // [조건 B] 오전에 60분 미만 출근 (05:01 이후 출근)
+            earlyOver = 0; // 오전 초과시간 무효
+        
+           // 오전에 공제하지 못했으므로 오후(퇴근시간)에서 1시간(60분) 공제
+           lateOver = Math.max(0, rawLateMins - 60); 
+           }
+
+           // 3. 최종 초과근무 분 합산
+           overtimeMins = earlyOver + lateOver;
+           }
+            
             else if (workType === '휴일근무') {
                 let actualWorkMins = endMins - startMins;
                 if (actualWorkMins < 0) actualWorkMins = 0;
