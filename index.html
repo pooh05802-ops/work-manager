@@ -2349,6 +2349,7 @@
         document.getElementById('trigger-meal-manage').addEventListener('click', () => {
             mealCurrentDate = new Date(systemToday.getFullYear(), systemToday.getMonth(), 1);
             openMealModal();
+            scrollToTodayMeal();
         });
         
         document.getElementById('close-meal-modal').addEventListener('click', () => {
