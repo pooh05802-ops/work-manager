@@ -366,24 +366,27 @@
                 </div>
                 
                 <div class="leave-row">
-                    <span class="leave-row-title">대휴</span>
-                    <span id="leave-daehyu-text" class="leave-row-value">0일</span>
-                </div>
-
-                <div class="leave-row">
-                    <span class="leave-row-title">특가</span>
-                    <span id="leave-special-text" class="leave-row-value">0일</span>
-                </div>
-
-                <div class="leave-row">
-                    <span class="leave-row-title">병가</span>
-                    <span id="leave-sick-text" class="leave-row-value">0일</span>
-                </div>
-
-                <div class="leave-row">
                     <span class="leave-row-title">예정</span>
                     <span id="leave-planned-text" class="leave-row-value">0일 0시간</span>
                 </div>
+
+                <div class="leave-row" style="justify-content: space-around; padding: 10px 12px;">
+                    <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
+                        <span class="leave-row-title" style="font-size: 0.75rem; color: var(--text-muted);">대휴</span>
+                        <span id="leave-daehyu-text" class="leave-row-value">0일</span>
+                    </div>
+                    <div style="width: 1px; background-color: var(--border-color); margin: 0 5px;"></div> <!-- 구분선 -->
+                    <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
+                        <span class="leave-row-title" style="font-size: 0.75rem; color: var(--text-muted);">특가</span>
+                        <span id="leave-special-text" class="leave-row-value">0일</span>
+                    </div>
+                    <div style="width: 1px; background-color: var(--border-color); margin: 0 5px;"></div> <!-- 구분선 -->
+                    <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
+                        <span class="leave-row-title" style="font-size: 0.75rem; color: var(--text-muted);">병가</span>
+                        <span id="leave-sick-text" class="leave-row-value">0일</span>
+                    </div>
+                </div>
+
 
                 <div class="leave-row leave-remain-row">
                     <div style="display:flex; flex-direction:column;">
@@ -401,7 +404,7 @@
                             <span class="leave-sub-title">일</span>
                         </div>
                     </div>
-                    <div class="leave-sub-row" style="margin-top:4px;">
+                    <div class="leave-sub-row" style="margin-top:4px; align-items: center;">
                         <span class="leave-sub-title">저축일수</span>
                         <span id="leave-saved-display-text" style="font-size:0.85rem; font-weight:bold; color:var(--text-white);">0일 0시간</span>
                     </div>
@@ -456,7 +459,7 @@
             </div>
 
             <div class="report-section">
-                <div class="report-title"><span><span class="material-symbols-outlined" style="color:#ff4a4a; font-size:1rem; vertical-align:middle;">event_busy</span> 휴일근무수당 (월 전체 합산)</span></div>
+                <div class="report-title"><span><span class="material-symbols-outlined" style="color:#ff4a4a; font-size:1rem; vertical-align:middle;">event_busy</span> 휴일근무수당</span></div>
                 <div class="report-row"><span>당월 휴일근무 일수</span> <span id="rep-holiday-count">0일</span></div>
                 <div class="report-row"><span>휴일근무수당</span> <span id="rep-holiday-rate-label">9급 기준 88,017원</span></div>
                 <div class="report-result" style="color:#ff4a4a;" id="rep-holiday-amount">0원</div>
