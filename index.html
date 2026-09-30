@@ -937,7 +937,7 @@
             let isSuk = false;
             if (attendanceData[dateStr] && attendanceData[dateStr].isSukjik) isSuk = true;
             
-            let effStartMins = Math.max(startMins, 3 * 60 + 30); 
+            let effStartMins = Math.max(startMins, 3 * 60); 
             let effEndMins = Math.min(endMins, isSuk ? 18 * 60 : 19 * 60);
             if (effEndMins < effStartMins) effEndMins = effStartMins;
 
@@ -983,19 +983,32 @@
            overtimeMins = earlyOver + lateOver;
            }
             
-            else if (workType === '휴일근무') {
+                else if (workType === '휴일근무') {
+                let actualWorkMins = endMins - startMins;
+                if (actualWorkMins < 0) actualWorkMins = 0;
+                
+                // 평일처럼 03~19시 사이에서 06~15시(360분~900분)를 제외한 시간만 초과 인정
+                let earlyOver = Math.max(0, 360 - effStartMins); // 06시 이전 근무시간
+                let lateOver = Math.max(0, effEndMins - 900);    // 15시 이후 근무시간
+                
+                overtimeMins = earlyOver + lateOver; // 최대 한도(8시간)는 외부 UI단에서 일괄 컷팅됨
+                breakfast = 0;
+                lunch = actualWorkMins >= 120 ? 1 : 0;
+            }
+            else if (workType === '휴무') {
                 let actualWorkMins = endMins - startMins;
                 if (actualWorkMins < 0) actualWorkMins = 0;
                 
                 let effectiveWorkMins = effEndMins - effStartMins;
                 if (effectiveWorkMins < 0) effectiveWorkMins = 0;
 
-                overtimeMins = Math.min(240, effectiveWorkMins); 
+                // 휴무일은 총 근무시간 그대로 인정 (최대 8시간)
+                overtimeMins = effectiveWorkMins; 
                 breakfast = 0;
                 lunch = actualWorkMins >= 120 ? 1 : 0;
             }
 
-            if (winterApplied) {
+            if (winterApplied) {                
                 breakfast = 0; // 동절기 적용시 조식 최종 무효화
             }
 
@@ -1150,12 +1163,14 @@
                 } else {
                     displayTag = '<span class="mini-type-tag" style="visibility:hidden;">평일</span>';
                 }
-
+          
                 let metrics = parseDailySheet(dateStr, activeType, activeStart, activeEnd, manualMins);
                 
-                let totalMins = Math.min(metrics.overtimeMins + manualMins, 240); 
+                // 근무형태별 하루 최대 한도 동적 적용 (휴일/휴무 8시간, 그 외 평일 6시간)
+                let dailyLimit = (activeType === '휴일근무' || activeType === '휴무') ? 480 : 360;
+                let totalMins = Math.min(metrics.overtimeMins + manualMins, dailyLimit); 
                 let timeText = totalMins > 0 ? `${Math.floor(totalMins/60)}H ${String(totalMins%60).padStart(2,'0')}M` : "";
-                
+               
                 let midTimeHtml = timeText ? `<div class="day-mid-time">${timeText.replace(' ', '')}</div>` : `<div class="day-mid-time" style="visibility:hidden;">-</div>`;
                 let choppedMemo = memoText.substring(0, 5);
                 let memoDiv = choppedMemo ? `<div class="day-memo-line">${choppedMemo}</div>` : `<div class="day-memo-line" style="visibility:hidden;"></div>`;
@@ -1227,9 +1242,10 @@
 
                 let metrics = parseDailySheet(dStr, currentType, startVal, endVal, manualMins);
                 
-                let dayTotalMins = Math.min(metrics.overtimeMins + manualMins, 240); 
-                let dayRate = getRateForDate(dStr); 
-
+                // 근무형태별 하루 최대 한도 동적 적용 (휴일/휴무 8시간, 그 외 평일 6시간)
+                let dailyLimit = (currentType === '휴일근무' || currentType === '휴무') ? 480 : 360;
+                let dayTotalMins = Math.min(metrics.overtimeMins + manualMins, dailyLimit); 
+                let dayRate = getRateForDate(dStr);
                 if (checkDate < todayMidnight) { 
                     actualOvertimeMins += dayTotalMins; 
                     if (d <= 15) actBf1 += metrics.breakfast; else actBf2 += metrics.breakfast;
@@ -1396,7 +1412,10 @@
 
             let res = parseDailySheet(selectedDateStr, modalWorkTypeSelect.value, startTimeInput.value, endTimeInput.value, manualMins);
             
-            let totalMins = Math.min(res.overtimeMins + manualMins, 240); 
+            // 근무형태별 하루 최대 한도 동적 적용 (모달 미리보기용)
+            let type = modalWorkTypeSelect.value;
+            let dailyLimit = (type === '휴일근무' || type === '휴무') ? 480 : 360;
+            let totalMins = Math.min(res.overtimeMins + manualMins, dailyLimit); 
             let timeText = totalMins > 0 ? `${Math.floor(totalMins/60)}H ${String(totalMins%60).padStart(2,'0')}M` : "0H 00M";
             
             document.getElementById('preview-overtime').textContent = timeText;
