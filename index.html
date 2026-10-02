@@ -1933,6 +1933,7 @@
 
                 let prevSuk = attendanceData[selectedDateStr].isSukjik;
                 let prevIl = attendanceData[selectedDateStr].isIljik;
+                let prevDae = attendanceData[selectedDateStr].isDaejik;
                 let prevManual = attendanceData[selectedDateStr].manualOvertimeMins;
                 let prevDaehyu = attendanceData[selectedDateStr].daehyuTargetDate;
                 let inputMemo = document.getElementById('modal-day-memo').value;
@@ -1955,6 +1956,7 @@
                     endTime: endTimeInput.value,     
                     isSukjik: modalWorkTypeSelect.value === '대휴' ? false : prevSuk, 
                     isIljik: prevIl, 
+                    isDaejik: prevDae,
                     overtimeMins: res.overtimeMins, 
                     breakfast: res.breakfast, 
                     lunch: res.lunch, 
