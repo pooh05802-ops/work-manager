@@ -186,6 +186,9 @@
         .config-check-lbl input[type="checkbox"] { transform: scale(1.1); cursor: pointer; margin: 0; }
         .lbl-sook { color: #ff6b6b; }
         .lbl-il { color: #ffd166; }
+        .lbl-dae { color: #60a5fa; }
+        .mini-duty-badge.daejik { background-color: #1e40af; color: #fff; } 
+        [data-theme="light"] .mini-duty-badge.daejik { color: #fff; }
 
         .form-group { margin-bottom: 10px; }
         .form-group label { display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px; }
@@ -1121,6 +1124,7 @@
                 let activeEnd = saved ? saved.endTime : "";
                 let isSuk = saved ? saved.isSukjik : false;
                 let isIl = saved ? saved.isIljik : false;
+                let isDae = saved ? saved.isDaejik : false;
                 let memoText = saved && saved.memo ? saved.memo : "";
                 let daehyuTarget = saved && saved.daehyuTargetDate ? saved.daehyuTargetDate : "";
                 let manualMins = saved && saved.manualOvertimeMins ? saved.manualOvertimeMins : 0;
@@ -1170,19 +1174,22 @@
                 let dailyLimit = (activeType === '휴일근무' || activeType === '휴무') ? 480 : 360;
                 let totalMins = Math.min(metrics.overtimeMins + manualMins, dailyLimit); 
                 let timeText = totalMins > 0 ? `${Math.floor(totalMins/60)}H ${String(totalMins%60).padStart(2,'0')}M` : "";
-               
+                
                 let midTimeHtml = timeText ? `<div class="day-mid-time">${timeText.replace(' ', '')}</div>` : `<div class="day-mid-time" style="visibility:hidden;">-</div>`;
                 let choppedMemo = memoText.substring(0, 5);
                 let memoDiv = choppedMemo ? `<div class="day-memo-line">${choppedMemo}</div>` : `<div class="day-memo-line" style="visibility:hidden;"></div>`;
 
+                // 겹칠 경우 85% 축소를 위한 판단
+                let dutyCount = (isSuk ? 1 : 0) + (isIl ? 1 : 0) + (isDae ? 1 : 0);
+                let compactStyle = dutyCount >= 2 ? 'style="transform: scale(0.85); transform-origin: center; white-space: nowrap;"' : '';
+
                 dayCell.innerHTML = `
-                    <span class="num">${day}</span>
-                    ${displayTag}
-                    <div class="duty-line">
-                        ${isSuk ? `<span class="mini-duty-badge">숙직</span>` : ''}
+                    <span class="num">${day}</span>${displayTag}
+                    <div class="duty-line" ${compactStyle}>${isSuk ? `<span class="mini-duty-badge">숙직</span>` : ''}
                         ${isIl ? `<span class="mini-duty-badge iljik">일직</span>` : ''}
+                        ${isDae ? `<span class="mini-duty-badge daejik">대직</span>` : ''}
                     </div>
-                    ${memoDiv}
+                    ${memoDiv}    
                     ${midTimeHtml}
                     <div class="day-bottom-row">
                         ${metrics.breakfast > 0 ? `<span class="mini-meal-item">☕</span>` : ''}
@@ -1478,6 +1485,7 @@
                 let activeType = saved ? saved.workType : getBaseWorkType(year, monthIdx, d, dayOfWeek, isHoli);
                 let isSuk = saved ? saved.isSukjik : false;
                 let isIl = saved ? saved.isIljik : false;
+                let isDae = saved ? saved.isDaejik : false;
                 let daehyuTarget = saved && saved.daehyuTargetDate ? saved.daehyuTargetDate : "";
                 let manualMins = saved && saved.manualOvertimeMins ? saved.manualOvertimeMins / 60 : "";
 
@@ -1490,7 +1498,7 @@
                     <div class="config-date-label" style="color: ${textColor}; font-size: 0.72rem;">${d}일(${weekdaysText[dayOfWeek]})</div>
                     <div class="config-main-controls">
                         <div class="config-main-controls-top">
-                            <select class="config-select" style="color: var(--select-text-color) !important; background-color: var(--card-bg) !important; width: 55px; padding:4px; font-size:0.75rem;">
+                            <select class="config-select" style="color: var(--select-text-color) !important; background-color: var(--card-bg) !important; width: 48px; padding:4px 2px; font-size:0.75rem;">
                                 <option value="평일" ${activeType==='평일'?'selected':''}>평일</option>
                                 <option value="휴일근무" ${activeType==='휴일근무'?'selected':''}>휴일근무</option>
                                 <option value="휴무" ${activeType==='휴무'?'selected':''}>휴무</option>
@@ -1504,10 +1512,11 @@
                                 <option value="오후" ${activeType==='오후'?'selected':''}>오후</option>
                                 <option value="오전" ${activeType==='오전'?'selected':''}>오전</option>
                             </select>
-                            
-                            <div class="config-duty-block">
+
+                            <div class="config-duty-block" style="gap:4px; padding:4px 3px;">
                                 <label class="config-check-lbl lbl-sook"><input type="checkbox" class="suk-chk" ${isSuk?'checked':''}> 숙</label>
                                 <label class="config-check-lbl lbl-il"><input type="checkbox" class="il-chk" ${isIl?'checked':''}> 일</label>
+                                <label class="config-check-lbl lbl-dae"><input type="checkbox" class="dae-chk" ${isDae?'checked':''}> 대</label>
                             </div>
                             
                             <div style="display:flex; align-items:center; gap:2px;">
@@ -1596,6 +1605,12 @@
                     }
                     saveDataAndRefresh(dStr); 
                 });
+
+                row.querySelector('.dae-chk').addEventListener('change', (e) => { 
+                    initDayContainer(dStr, activeType);
+                    attendanceData[dStr].isDaejik = e.target.checked; 
+                    saveDataAndRefresh(dStr); 
+                });
                 injector.appendChild(row);
             }
             configListModal.classList.add('open');
@@ -1608,11 +1623,12 @@
                 let defaults = getDefaultTimeForDay(fallbackType, dayOfWeek, dateStr);
                 attendanceData[dateStr] = {
                     workType: fallbackType, startTime: defaults.start, endTime: defaults.end,
-                    isSukjik: false, isIljik: false, overtimeMins: 0, breakfast: 0, lunch: 0, isCustomTimeModified: false, memo: "",
+                    isSukjik: false, isIljik: false, isDaejik: false, overtimeMins: 0, breakfast: 0, lunch: 0, isCustomTimeModified: false, memo: "",
                     manualOvertimeMins: 0, daehyuTargetDate: "", winterApplied: false
                 };
             }
         }
+        
 
         function saveDataAndRefresh(dateStr) {
             let item = attendanceData[dateStr];
