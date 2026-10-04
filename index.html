@@ -963,8 +963,10 @@
             }  
 
             // 2. 초과시간 및 1시간(60분) 공제 로직 (오전 우선 공제)
-            let rawEarlyMins = Math.max(0, regStartMins - effStartMins); // 순수 출근 조기 시간
-            let rawLateMins = Math.max(0, effEndMins - regEndMins);      // 순수 퇴근 지연 시간
+            // 06시 이전에 퇴근하는 경우를 대비해 퇴근시간(effEndMins)과 06시(regStartMins) 중 작은 값을 기준으로 계산
+            let rawEarlyMins = Math.max(0, Math.min(effEndMins, regStartMins) - effStartMins); 
+            // 15시 이후에 출근하는 경우를 대비해 출근시간(effStartMins)과 15시(regEndMins) 중 큰 값을 기준으로 계산
+            let rawLateMins = Math.max(0, effEndMins - Math.max(effStartMins, regEndMins));    
 
             let earlyOver = 0;
             let lateOver = 0;
@@ -985,16 +987,17 @@
            // 3. 최종 초과근무 분 합산
            overtimeMins = earlyOver + lateOver;
            }
-            
+
                 else if (workType === '휴일근무') {
-                let actualWorkMins = endMins - startMins;
-                if (actualWorkMins < 0) actualWorkMins = 0;
-                
-                // 평일처럼 03~19시 사이에서 06~15시(360분~900분)를 제외한 시간만 초과 인정
-                let earlyOver = Math.max(0, 360 - effStartMins); // 06시 이전 근무시간
-                let lateOver = Math.max(0, effEndMins - 900);    // 15시 이후 근무시간
-                
-                overtimeMins = earlyOver + lateOver; // 최대 한도(8시간)는 외부 UI단에서 일괄 컷팅됨
+                    let actualWorkMins = endMins - startMins;
+                    if (actualWorkMins < 0) actualWorkMins = 0;
+    
+                    // 평일처럼 03~19시 사이에서 06~15시(360분~900분)를 제외한 시간만 초과 인정
+                    let earlyOver = Math.max(0, Math.min(effEndMins, 360) - effStartMins); // 06시 이전 실제 근무시간
+                    let lateOver = Math.max(0, effEndMins - Math.max(effStartMins, 900));  // 15시 이후 실제 근무시간
+    
+                    overtimeMins = earlyOver + lateOver; // 최대 한도(8시간)는 외부 UI단에서 일괄 컷팅됨
+             
                 breakfast = 0;
                 lunch = actualWorkMins >= 120 ? 1 : 0;
             }
