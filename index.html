@@ -449,15 +449,16 @@
                 <h3 style="font-size:0.95rem; color:var(--text-white);">월간정산 내역</h3>
                 <span class="material-symbols-outlined close-btn" id="close-report-modal">close</span>
             </header>
-            
+
             <div class="report-section">
                 <div class="report-title"><span><span class="material-symbols-outlined" style="color:var(--accent-color); font-size:1rem; vertical-align:middle;">more_time</span> 초과근무수당</span></div>
                 <div class="report-row"><span id="rep-actual-limit-label">현재 실적 시간 (최대 50H 한도)</span> <span id="rep-actual-overtime" style="color:var(--accent-color); font-weight:bold;">0H 00M</span></div>
+                <div class="report-row"><span>월 예상 실적 시간</span> <span id="rep-predicted-overtime-row">0H 00M</span></div>
                 <div class="report-row"><span>기본 제공 시간</span> <span>10H 00M</span></div>
                 <div class="report-row"><span>초과근무</span> <span id="rep-hourly-rate">9급 기준 10,949원</span></div>
-                <div class="report-result" style="color:var(--accent-color);" id="rep-overtime-amount">0원</div>
+                <div class="report-result" style="color:var(--accent-color);" id="rep-overtime-amount">현재 0원 / 월 마감 0 원</div>
             </div>
-
+            
             <div class="report-section">
                 <div class="report-title"><span><span class="material-symbols-outlined" style="color:#ff4a4a; font-size:1rem; vertical-align:middle;">event_busy</span> 휴일근무수당</span></div>
                 <div class="report-row"><span>당월 휴일근무 일수</span> <span id="rep-holiday-count">0일</span></div>
@@ -1256,7 +1257,7 @@
                 let dailyLimit = (currentType === '휴일근무' || currentType === '휴무') ? 480 : 360;
                 let dayTotalMins = Math.min(metrics.overtimeMins + manualMins, dailyLimit); 
                 let dayRate = getRateForDate(dStr);
-                if (checkDate < todayMidnight) { 
+                if (checkDate <= todayMidnight) { 
                     actualOvertimeMins += dayTotalMins; 
                     if (d <= 15) actBf1 += metrics.breakfast; else actBf2 += metrics.breakfast;
                     actLunch += metrics.lunch;
@@ -1283,6 +1284,7 @@
             let cappedActualMins = Math.min(actualOvertimeMins, maxOvertimeMins); 
             
             let rawTotalPredictedMins = actualOvertimeMins + predictedOvertimeMins; 
+            let cappedTotalMins = Math.min(rawTotalPredictedMins, maxOvertimeMins);
             
             document.getElementById('rep-actual-limit-label').textContent = `현재 실적 시간 (최대 ${maxOvertimeMins / 60}H 한도)`;
 
@@ -1290,14 +1292,27 @@
             
             document.getElementById('dash-predicted-overtime').textContent = `(예상 ${Math.floor(rawTotalPredictedMins / 60)}h ${String(rawTotalPredictedMins % 60).padStart(2, '0')}m)`;
             
+            // 월간정산 모달 내 '월 예상 실적 시간' 행 업데이트
+            document.getElementById('rep-predicted-overtime-row').textContent = `${Math.floor(rawTotalPredictedMins / 60)}H ${String(rawTotalPredictedMins % 60).padStart(2, '0')}M`;
+            
             document.getElementById('dash-day-distribution').innerHTML = `평일 ${countNormal}<span class="dot-split">·</span>휴일 ${countHolidayWork}<span class="dot-split">·</span>휴무 ${countHuumu}`;
-            let lh = Math.floor(cappedActualMins / 60);
-            let finalCalculatedOvertimePay = (lh + 10) * lastDayRate.hourly;
+            
+            // 현재 금액 및 월 마감(예상) 금액 계산
+            let currentLh = Math.floor(cappedActualMins / 60);
+            let currentPay = (currentLh + 10) * lastDayRate.hourly;
+            
+            let totalLh = Math.floor(cappedTotalMins / 60);
+            let totalPay = (totalLh + 10) * lastDayRate.hourly;
 
             document.getElementById('rep-actual-overtime').textContent = `${Math.floor(cappedActualMins / 60)}H ${String(cappedActualMins % 60).padStart(2, '0')}M`;
             document.getElementById('rep-hourly-rate').textContent = `${lastDayRate.grade}급 기준 ${lastDayRate.hourly.toLocaleString()}원`;
-            document.getElementById('rep-overtime-amount').textContent = `${(Math.floor(finalCalculatedOvertimePay / 10) * 10).toLocaleString()}원`;
+            
+            let formattedCurrentPay = (Math.floor(currentPay / 10) * 10).toLocaleString();
+            let formattedTotalPay = (Math.floor(totalPay / 10) * 10).toLocaleString();
+            document.getElementById('rep-overtime-amount').textContent = `현재 ${formattedCurrentPay}원 / 월 마감 ${formattedTotalPay} 원`;
 
+            
+            
             document.getElementById('rep-holiday-count').textContent = `${fullMonthHolidayCount}일`;
             document.getElementById('rep-holiday-rate-label').textContent = `${lastDayRate.grade}급 기준 ${lastDayRate.holiday.toLocaleString()}원`;
             document.getElementById('rep-holiday-amount').textContent = `${(Math.floor(totalHolidayPay / 10) * 10).toLocaleString()}원`;
